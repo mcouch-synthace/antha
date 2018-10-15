@@ -3,11 +3,13 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
+	"github.com/antha-lang/antha/antha/AnthaStandardLibrary/Packages/search"
 	"github.com/antha-lang/antha/workflow"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
 )
 
 var convertBundleCmd = &cobra.Command{
@@ -21,9 +23,11 @@ type NewElementMappingDetails struct {
 }
 
 type ConversionDetails struct {
-	OldElementName      string            `json:"old-element-name"`
-	NewElementName      string            `json:"new-element-name"`
-	NewParameterMapping map[string]string `json:"new-parameter-mapping"`
+	OldElementName       string                     `json:"old-element-name"`
+	NewElementName       string                     `json:"new-element-name"`
+	NewParameterMapping  map[string]string          `json:"new-parameter-mapping"`
+	DeprecatedParameters []string                   `json:"deprecated-parameters"`
+	NewParameters        map[string]json.RawMessage `json:"new-parameters"`
 }
 
 func (c NewElementMappingDetails) Empty() bool {
@@ -109,11 +113,18 @@ func convertParametersAndConnections(in customAnthaBundle, newElementNames Conve
 			for parameterName, value := range parametersForThisProcess {
 				// check for replacement parameter names
 				if newParameterName, newParameterFound := newElementNames.NewParameterMapping[parameterName]; newParameterFound {
-					newParameters[newParameterName] = value
-				} else {
+					if len(newParameters[newParameterName]) > 0 {
+						newParameters[newParameterName] = value
+					}
+				} else if !search.InStrings(newElementNames.DeprecatedParameters, parameterName) {
 					newParameters[parameterName] = value
 				}
 			}
+			// add new defaults if any specified
+			for newParameterName, defaultValue := range newElementNames.NewParameters {
+				newParameters[newParameterName] = defaultValue
+			}
+
 			// replace connections
 			for parameterName, newParameterName := range newElementNames.NewParameterMapping {
 				for i := range connections {
@@ -144,7 +155,7 @@ func replaceConnection(connection workflow.Connection, processToReplace, paramet
 			Process: connection.Tgt.Process,
 			Port:    newParameterName,
 		}
-		panic(fmt.Sprintln(newConnection))
+		//panic(fmt.Sprintln(newConnection))
 	} else {
 		newConnection.Tgt = connection.Tgt
 	}
