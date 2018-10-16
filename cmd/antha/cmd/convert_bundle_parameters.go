@@ -113,9 +113,7 @@ func convertParametersAndConnections(in customAnthaBundle, newElementNames Conve
 			for parameterName, value := range parametersForThisProcess {
 				// check for replacement parameter names
 				if newParameterName, newParameterFound := newElementNames.NewParameterMapping[parameterName]; newParameterFound {
-					if len(newParameters[newParameterName]) > 0 {
-						newParameters[newParameterName] = value
-					}
+					newParameters[newParameterName] = value
 				} else if !search.InStrings(newElementNames.DeprecatedParameters, parameterName) {
 					newParameters[parameterName] = value
 				}
