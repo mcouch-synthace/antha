@@ -98,11 +98,20 @@ func convertAllBundles(cmd *cobra.Command, args []string) error {
 			cFile.Close() //nolint
 
 			if !c.Empty() {
-				for _, bundle := range bundles.Bundles {
-					err := convertBundleWithArgs(metadataFileName, bundle.Path, filepath.Join(bundle.Dir, viper.GetString("addPrefix")+bundle.FileName))
+				for i, bundle := range bundles.Bundles {
+
+					fileName := bundle.FileName
+
+					if !strings.HasPrefix(bundle.FileName, viper.GetString("addPrefix")) {
+						fileName = viper.GetString("addPrefix") + bundle.FileName
+					}
+
+					err := convertBundleWithArgs(metadataFileName, bundle.Path, filepath.Join(bundle.Dir, fileName))
 					if err != nil {
 						errs = append(errs, metadataFileName+" + "+bundle.Path+": "+err.Error())
 					}
+					// update bundle name, in case it will be re-modified
+					bundles.Bundles[i].FileName = fileName
 				}
 			}
 		}
