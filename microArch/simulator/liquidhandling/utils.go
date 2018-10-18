@@ -362,36 +362,24 @@ func summariseChannels(channels []int) string {
 }
 
 func summariseVolumes(vols []float64) string {
-	if len(vols) == 0 {
-		return ""
-	}
-
-	counts := append(make([]int, 0, len(vols)), 1)
-	volumes := append(make([]float64, 0, len(vols)), vols[0])
-
-	for _, v := range vols[1:] {
-		if v == volumes[len(volumes)-1] {
-			counts[len(counts)-1]++
-		} else {
-			counts = append(counts, 1)
-			volumes = append(volumes, v)
+	equal := true
+	for _, v := range vols {
+		if v != vols[0] {
+			equal = false
+			break
 		}
 	}
 
-	s := make([]string, 0, len(volumes))
-	for i, c := range counts {
-		if c == 1 {
-			s = append(s, fmt.Sprintf("%.3g", volumes[i]))
-		} else {
-			s = append(s, fmt.Sprintf("%dx%.3g", c, volumes[i]))
-		}
+	if equal {
+		return wunit.NewVolume(vols[0], "ul").ToString()
 	}
 
-	if len(s) == 1 {
-		return s[0] + " ul"
-	} else {
-		return "{" + strings.Join(s, ",") + "} ul"
+	s_vols := make([]string, len(vols))
+	for i, v := range vols {
+		s_vols[i] = wunit.NewVolume(v, "ul").ToString()
+		s_vols[i] = s_vols[i][:len(s_vols[i])-3]
 	}
+	return fmt.Sprintf("{%s} ul", strings.Join(s_vols, ","))
 }
 
 func summariseRates(rates []wunit.FlowRate) string {
@@ -452,19 +440,16 @@ func summariseCycles(cycles []int, elems []int) string {
 }
 
 func summariseWells(wells []*wtype.LHWell, elems []int) string {
-	w := make([]wtype.WellCoords, 0, len(elems))
-	seen := make(map[*wtype.LHWell]bool, len(wells))
+	w := make([]string, 0, len(elems))
 	for _, i := range elems {
-		if !seen[wells[i]] {
-			seen[wells[i]] = true
-			w = append(w, wells[i].GetWellCoords())
-		}
+		w = append(w, wells[i].GetWellCoords().FormatA1())
 	}
+	uw := getUnique(w, true)
 
-	if len(w) == 1 {
-		return fmt.Sprintf("well %s", w[0].FormatA1())
+	if len(uw) == 1 {
+		return fmt.Sprintf("well %s", uw[0])
 	}
-	return fmt.Sprintf("wells %s", wtype.HumanizeWellCoords(w))
+	return fmt.Sprintf("wells %s", strings.Join(uw, ","))
 }
 
 func summarisePlates(wells []*wtype.LHWell, elems []int) string {
