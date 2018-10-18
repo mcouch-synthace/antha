@@ -153,7 +153,6 @@ func replaceConnection(connection workflow.Connection, processToReplace, paramet
 			Process: connection.Tgt.Process,
 			Port:    newParameterName,
 		}
-		//panic(fmt.Sprintln(newConnection))
 	} else {
 		newConnection.Tgt = connection.Tgt
 	}
