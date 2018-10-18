@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"encoding/json"
-	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var convertAllBundlesCmd = &cobra.Command{
@@ -74,7 +75,19 @@ func convertAllBundles(cmd *cobra.Command, args []string) error {
 	}
 
 	bundles := newBundles()
-	if err := filepath.Walk(viper.GetString("rootDir"), bundles.Walk); err != nil {
+
+	if path := viper.GetString("specificFile"); path != "" {
+
+		dir, fileName := filepath.Split(path)
+
+		bundles.seen[dir] = true
+
+		bundles.Bundles = append(bundles.Bundles, &bundle{
+			Path:     path,
+			Dir:      dir,
+			FileName: fileName,
+		})
+	} else if err := filepath.Walk(viper.GetString("rootDir"), bundles.Walk); err != nil {
 		return err
 	}
 
@@ -112,6 +125,7 @@ func convertAllBundles(cmd *cobra.Command, args []string) error {
 					}
 					// update bundle name, in case it will be re-modified
 					bundles.Bundles[i].FileName = fileName
+					bundles.Bundles[i].Path = filepath.Join(bundles.Bundles[i].Dir, bundles.Bundles[i].FileName)
 				}
 			}
 		}
@@ -131,4 +145,5 @@ func init() {
 	flags := c.Flags()
 	flags.String("rootDir", ".", "root directory to search for metadata files with new element mapping and test bundles to update")
 	flags.String("addPrefix", "", "adds a common prefix to the start of all updated bundle files")
+	flags.String("specificFile", "", "specify a single bundle file to convert with all metadata files found in rootDir")
 }
