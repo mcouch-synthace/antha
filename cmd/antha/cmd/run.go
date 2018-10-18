@@ -38,6 +38,7 @@ import (
 	"github.com/antha-lang/antha/target"
 	"github.com/antha-lang/antha/target/auto"
 	"github.com/antha-lang/antha/target/mixer"
+	"github.com/antha-lang/antha/workflow"
 	"github.com/antha-lang/antha/workflowtest"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -45,6 +46,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"strings"
 )
 
 var runCmd = &cobra.Command{
@@ -146,6 +148,7 @@ func (a *runOpt) Run() error {
 	}
 
 	mixerOpt := mixer.DefaultOpt.Merge(bundle.RawParams.Config).Merge(&a.MixerOpt)
+
 	opt := auto.Opt{
 		MaybeArgs: []interface{}{mixerOpt},
 	}
@@ -172,9 +175,9 @@ func (a *runOpt) Run() error {
 	}
 
 	rout, err := execute.Run(ctx, execute.Opt{
-		Target:   t.Target,
-		Workflow: &bundle.Desc,
-		Params:   &bundle.RawParams,
+		Target:                     t.Target,
+		Workflow:                   &bundle.Desc,
+		Params:                     &bundle.RawParams,
 		TransitionalReadLocalFiles: true,
 	})
 	if err != nil {
@@ -205,6 +208,13 @@ func (a *runOpt) Run() error {
 		expected := workflowtest.SaveTestOutputs(rout, "")
 		bundleWithOutputs := *bundle
 		bundleWithOutputs.TestOpt = expected
+
+		if bundleWithOutputs.Version == "" {
+			bundleWithOutputs.Version = "1.2.0"
+		}
+
+		bundleWithOutputs = addRun1s(bundleWithOutputs)
+
 		serializedOutputs, err := json.MarshalIndent(bundleWithOutputs, "", "  ")
 		if err != nil {
 			return err
@@ -298,7 +308,6 @@ func runWorkflow(cmd *cobra.Command, args []string) error {
 func init() {
 	c := runCmd
 	flags := c.Flags()
-
 	RootCmd.AddCommand(c)
 	flags.Bool("legacyVolumeTracking", false, "Do not track volumes for intermediate components")
 	flags.Bool("outputSort", false, "Sort execution by output - improves tip usage")
@@ -323,4 +332,44 @@ func init() {
 	flags.Bool("runTest", false, "run tests")
 	flags.Bool("fixVolumes", true, "Make all volumes sufficient for later uses")
 	flags.String("policyFile", "", "Design file of custom liquid policies in format of .xlsx JMP file")
+}
+
+func idempotentRun1Addition(name string) string {
+	if !strings.HasSuffix(name, "_run1") {
+		name = name + "_run1"
+	}
+
+	return name
+}
+
+// the workflow editor refuses to recognise any element without _run1 at the end
+// this adds _run1 iff it is not already present as a suffix to the name of an element
+func addRun1s(bin executeutil.Bundle) executeutil.Bundle {
+	mmmm := make(map[string]map[string]json.RawMessage)
+
+	for name, value := range bin.Parameters {
+		name = idempotentRun1Addition(name)
+		mmmm[name] = value
+	}
+
+	nnnn := make(map[string]workflow.Process)
+
+	for name, value := range bin.Processes {
+		name = idempotentRun1Addition(name)
+		nnnn[name] = value
+	}
+
+	newConnections := make([]workflow.Connection, len(bin.Connections))
+
+	for i, conn := range bin.Connections {
+		conn.Src.Process = idempotentRun1Addition(conn.Src.Process)
+		conn.Tgt.Process = idempotentRun1Addition(conn.Tgt.Process)
+		newConnections[i] = conn
+	}
+
+	bin.Connections = newConnections
+	bin.Parameters = mmmm
+	bin.Processes = nnnn
+
+	return bin
 }
