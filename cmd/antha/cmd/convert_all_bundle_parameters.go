@@ -125,6 +125,7 @@ func convertAllBundles(cmd *cobra.Command, args []string) error {
 					}
 					// update bundle name, in case it will be re-modified
 					bundles.Bundles[i].FileName = fileName
+					bundles.Bundles[i].Path = filepath.Join(bundles.Bundles[i].Dir, bundles.Bundles[i].FileName)
 				}
 			}
 		}
