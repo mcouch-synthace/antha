@@ -397,7 +397,7 @@ func (this *Liquidhandler) shrinkVolumes(rq *LHRequest) error {
 	}
 
 	if rq.Options.PrintInstructions {
-		fmt.Println("Calculated required volumes:")
+		fmt.Println("Volume used in first round:")
 		for plate := range usedPlates {
 			fmt.Printf("  plate %s at %q\n", plate.Name(), this.Properties.PlateIDLookup[plate.ID])
 			for it := wtype.NewAddressIterator(plate, wtype.ColumnWise, wtype.TopToBottom, wtype.LeftToRight, false); it.Valid(); it.Next() {
@@ -410,20 +410,7 @@ func (this *Liquidhandler) shrinkVolumes(rq *LHRequest) error {
 		}
 	}
 
-	// second, apply pre-calculated evaporation volumes to the count
-	for _, vc := range rq.Evaps {
-		// ignore anything where the location isn't properly set ("<plateID>:<WellCoords>")
-		if loctox := strings.Split(vc.Location, ":"); len(loctox) == 2 {
-			plateID, wellCoords := loctox[0], loctox[1]
-
-			if plate, ok := this.Properties.PlateLookup[plateID].(*wtype.LHPlate); ok {
-				well := plate.Wellcoords[wellCoords]
-				vols[well].IncrBy(vc.Volume) // nolint - (nill).IncrBy is noop
-			}
-		}
-	}
-
-	// third, set volumes for each autoallocated input as calculated
+	// second, set volumes for each autoallocated input as calculated
 	for initialWell, volUsed := range vols {
 		if initialWell.IsAutoallocated() {
 			volUsed.IncrBy(initialWell.ResidualVolume()) // nolint - volumes are always compatible
@@ -437,7 +424,7 @@ func (this *Liquidhandler) shrinkVolumes(rq *LHRequest) error {
 		}
 	}
 
-	// finally, remove anything which was autoallocated but not used at all by instructions
+	// third, remove anything which was autoallocated but not used at all by instructions
 	toRemove := make([]string, 0, len(this.Properties.Plates))
 	for _, plate := range this.Properties.Plates {
 		if !usedPlates[plate] {
@@ -729,43 +716,33 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 	}
 
 	forceSanity(request)
+
+	if err := assertVolumesNonNegative(request); err != nil {
+		return err
+	} else if err := assertTotalVolumesMatch(request); err != nil {
+		return err
+	} else if err := assertMixResultsCorrect(request); err != nil {
+		return err
+	} else if err := assertWellNotOverfilled(ctx, request); err != nil {
+		return err
+	}
+
 	// convert requests to volumes and determine required stock concentrations
-
-	if err := assertVolumesNonNegative(request); err != nil {
+	if instructions, stockconcs, err := solution_setup(request, this.Properties); err != nil {
 		return err
-	}
-	if err := assertTotalVolumesMatch(request); err != nil {
+	} else if err := assertVolumesNonNegative(request); err != nil {
 		return err
-	}
-	if err := assertMixResultsCorrect(request); err != nil {
+	} else if err := assertTotalVolumesMatch(request); err != nil {
 		return err
-	}
-	if err := assertWellNotOverfilled(ctx, request); err != nil {
+	} else if err := assertMixResultsCorrect(request); err != nil {
 		return err
+	} else {
+		request.LHInstructions = instructions
+		request.Stockconcs = stockconcs
 	}
-
-	instructions, stockconcs, err := solution_setup(request, this.Properties)
-	if err != nil {
-		return err
-	}
-
-	if err := assertVolumesNonNegative(request); err != nil {
-		return err
-	}
-	if err := assertTotalVolumesMatch(request); err != nil {
-		return err
-	}
-	if err := assertMixResultsCorrect(request); err != nil {
-		return err
-	}
-
-	request.LHInstructions = instructions
-	request.Stockconcs = stockconcs
 
 	// set up the mapping of the outputs
-	// tried moving here to see if we can use results in fixVolumes
-	request, err = this.Layout(ctx, request)
-
+	request, err := this.Layout(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -793,14 +770,11 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 
 	if err := assertVolumesNonNegative(request); err != nil {
 		return err
-	}
-	if err := assertTotalVolumesMatch(request); err != nil {
+	} else if err := assertTotalVolumesMatch(request); err != nil {
 		return err
-	}
-	if err := assertMixResultsCorrect(request); err != nil {
+	} else if err := assertMixResultsCorrect(request); err != nil {
 		return err
-	}
-	if err := assertWellNotOverfilled(ctx, request); err != nil {
+	} else if err := assertWellNotOverfilled(ctx, request); err != nil {
 		return err
 	}
 
@@ -828,32 +802,29 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 	// define the input plates
 	// should be merged with the above
 	request, err = input_plate_setup(ctx, request)
-
 	if err != nil {
 		return err
 	}
 
-	// next we need to determine the liquid handler setup
+	// next we assign plates to positions within the liquidhandler
 	request, err = this.Setup(ctx, request)
 	if err != nil {
 		return err
 	}
 
 	// final insurance that plate names will be safe
-
 	request = fixDuplicatePlateNames(request)
 
 	// remove dummy mix-in-place instructions
-
 	request = removeDummyInstructions(request)
 
-	//set the well targets
+	// set the well targets, i.e. locations to use when multiple tips enter the same well
 	err = this.addWellTargets()
 	if err != nil {
 		return err
 	}
 
-	// now make instructions
+	// build the instruction tree and generate the low level robot instructions - first pass
 	if rq, finalProps, err := this.GenerateInstructions(ctx, request); err != nil {
 		return err
 	} else {
@@ -862,24 +833,25 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 	}
 
 	if request.Options.PrintInstructions {
-		fmt.Println("first round of instructions")
+		fmt.Println("first round of instruction generation")
 		for _, ins := range request.Instructions {
 			fmt.Printf("  %s\n", liquidhandling.InsToString(ins))
 		}
 		OutputSetup(this.FinalProperties)
 	}
 
-	// revise the volumes - this makes sure the autoallocated volumes are correct
+	// accurately reduce the volume of autoallocated components to their minimum based on
+	// the generated low level instructions, the carry volume, and well residuals
 	if err := this.shrinkVolumes(request); err != nil {
 		return err
 	}
 
-	// now make instructions with the updated volumes
+	// now regenerate the instructions with the updated input volumes
 	if rq, finalProps, err := this.GenerateInstructions(ctx, request); err != nil {
 		return errors.WithMessage(err, "in second round of execution planning")
 	} else {
 		request = rq
-		// duplicate this time so that final IDs are different
+		// duplicate this time so that final plate IDs are different
 		this.FinalProperties = finalProps.Dup()
 	}
 
@@ -893,6 +865,8 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 		return err
 	}
 
+	// determine how to convert between IDs of objects in the initial LHProperties
+	// and those in the final LHProperties
 	if err := this.makePlateIDMap(); err != nil {
 		return err
 	}
@@ -903,9 +877,7 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 		return err
 	}
 
-	err = assertNoTemporaryPlates(ctx, request)
-
-	return err
+	return assertNoTemporaryPlates(ctx, request)
 }
 
 // define which labware to use

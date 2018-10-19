@@ -60,7 +60,6 @@ type LHRequest struct {
 	TimeEstimate          float64
 	CarryVolume           wunit.Volume
 	InstructionSets       [][]*wtype.LHInstruction
-	Evaps                 []wtype.VolumeCorrection
 	Options               LHOptions
 	NUserPlates           int
 	OutputSort            bool
