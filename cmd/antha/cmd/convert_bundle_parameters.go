@@ -40,36 +40,6 @@ func (c NewElementMappingDetails) Empty() bool {
 	return true
 }
 
-type customAnthaBundle = executeutil.Bundle
-
-/*
-// expected structure of a bundle file including possible optional fields from UI generated fields
-type customAnthaBundle struct {
-	// current fields for Compare instructions tool
-	// these are liable to change/deletion
-	CompareInstructions bool
-	CompareOutputs      bool
-	ComparisonOptions   string
-	Results             results
-
-	// core bundle file fields, including a generic Config field to support both UI and command line generated bundles.
-	workflow.Desc
-	customParams
-
-	// fields generated from UI
-	Properties interface{}
-	Version    string `json:"version"`
-}
-
-type results struct {
-	MixTaskResults interface{}
-}
-
-type customParams struct {
-	Parameters map[string]map[string]json.RawMessage `json:"parameters"`
-	Config     map[string]json.RawMessage            `json:"config"`
-}
-*/
 // replaces old parameter names with new; this must be done after changing parameter names
 func convertProcesses(in map[string]workflow.Process, newElementNames ConversionDetails) map[string]workflow.Process {
 	ret := make(map[string]workflow.Process)
@@ -91,7 +61,7 @@ func convertProcesses(in map[string]workflow.Process, newElementNames Conversion
 	return ret
 }
 
-func containsSomethingToConvert(in customAnthaBundle, newElementNames ConversionDetails) bool {
+func containsSomethingToConvert(in executeutil.Bundle, newElementNames ConversionDetails) bool {
 	for _, element := range in.Processes {
 		if element.Component == newElementNames.OldElementName {
 			return true
@@ -100,7 +70,7 @@ func containsSomethingToConvert(in customAnthaBundle, newElementNames Conversion
 	return false
 }
 
-func convertParametersAndConnections(in customAnthaBundle, newElementNames ConversionDetails) (map[string]map[string]json.RawMessage, []workflow.Connection, error) {
+func convertParametersAndConnections(in executeutil.Bundle, newElementNames ConversionDetails) (map[string]map[string]json.RawMessage, []workflow.Connection, error) {
 	var errs []string
 	parameters := make(map[string]map[string]json.RawMessage)
 	connections := in.Connections
@@ -206,13 +176,13 @@ func convertBundleWithArgs(conversionMapFileName, bundleFileName, outPutFileName
 	}
 	defer inFile.Close() // nolint
 
-	var original customAnthaBundle
+	var original executeutil.Bundle
 	dec := json.NewDecoder(inFile)
 	if err := dec.Decode(&original); err != nil {
 		return err
 	}
 
-	var bundle customAnthaBundle = original
+	var bundle executeutil.Bundle = original
 
 	if !containsSomethingToConvert(original, c.ConversionDetails) {
 		return nothingToConvert{ErrMessage: "nothing to convert in bundle file"}
