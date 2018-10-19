@@ -396,6 +396,20 @@ func (this *Liquidhandler) shrinkVolumes(rq *LHRequest) error {
 		})
 	}
 
+	if rq.Options.PrintInstructions {
+		fmt.Println("Calculated required volumes:")
+		for plate := range usedPlates {
+			fmt.Printf("  plate %s at %q\n", plate.Name(), this.Properties.PlateIDLookup[plate.ID])
+			for it := wtype.NewAddressIterator(plate, wtype.ColumnWise, wtype.TopToBottom, wtype.LeftToRight, false); it.Valid(); it.Next() {
+				if well, ok := plate.WellAt(it.Curr()); !ok {
+					panic("iterator moved to a well that doesn't exist")
+				} else if vol, ok := vols[well]; ok {
+					fmt.Printf("    %s, %s, %s\n", it.Curr().FormatA1(), well.Contents().Name(), vol)
+				}
+			}
+		}
+	}
+
 	// second, apply pre-calculated evaporation volumes to the count
 	for _, vc := range rq.Evaps {
 		// ignore anything where the location isn't properly set ("<plateID>:<WellCoords>")
@@ -845,6 +859,14 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 	} else {
 		request = rq
 		this.FinalProperties = finalProps
+	}
+
+	if request.Options.PrintInstructions {
+		fmt.Println("first round of instructions")
+		for _, ins := range request.Instructions {
+			fmt.Printf("  %s\n", liquidhandling.InsToString(ins))
+		}
+		OutputSetup(this.FinalProperties)
 	}
 
 	// revise the volumes - this makes sure the autoallocated volumes are correct

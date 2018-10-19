@@ -45,9 +45,9 @@ type LHProperties struct {
 	ID            string
 	Nposns        int
 	Positions     map[string]*wtype.LHPosition
-	PlateLookup   map[string]interface{} // maps object ID to object
-	PosLookup     map[string]string      // maps position to object ID
-	PlateIDLookup map[string]string
+	PlateLookup   map[string]interface{}  // maps object ID to object
+	PosLookup     map[string]string       // maps position to object ID
+	PlateIDLookup map[string]string       // maps object ID to position name
 	Plates        map[string]*wtype.Plate // maps position name to plate
 	Tipboxes      map[string]*wtype.LHTipbox
 	Tipwastes     map[string]*wtype.LHTipwaste
