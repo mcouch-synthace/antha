@@ -414,7 +414,6 @@ func (this *Liquidhandler) shrinkVolumes(rq *LHRequest) error {
 	for initialWell, volUsed := range vols {
 		if initialWell.IsAutoallocated() {
 			volUsed.IncrBy(initialWell.ResidualVolume()) // nolint - volumes are always compatible
-			volUsed.DecrBy(rq.CarryVolume)               // nolint - final carry volume from well comes from residual
 
 			initialContents := initialWell.Contents().Dup()
 			initialContents.SetVolume(volUsed)
@@ -837,7 +836,6 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 		for _, ins := range request.Instructions {
 			fmt.Printf("  %s\n", liquidhandling.InsToString(ins))
 		}
-		OutputSetup(this.FinalProperties)
 	}
 
 	// accurately reduce the volume of autoallocated components to their minimum based on
