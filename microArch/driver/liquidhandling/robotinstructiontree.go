@@ -1,4 +1,4 @@
-// /anthalib/driver/liquidhandling/robotinstructionset.go: Part of the Antha language
+// /anthalib/driver/liquidhandling/robotchildrenet.go: Part of the Antha language
 // Copyright (C) 2015 The Antha authors. All rights reserved.
 //
 // This program is free software; you can redistribute it and/or
@@ -29,49 +29,54 @@ import (
 	"github.com/antha-lang/antha/antha/anthalib/wtype"
 )
 
-type RobotInstructionSet struct {
-	parent       RobotInstruction
-	instructions []*RobotInstructionSet
+// ITreeNode a node within a RobotInstruction tree
+type ITreeNode struct {
+	instruction RobotInstruction
+	children    []*ITreeNode
 }
 
-func NewRobotInstructionSet(p RobotInstruction) *RobotInstructionSet {
-	var ret RobotInstructionSet
-	ret.instructions = make([]*RobotInstructionSet, 0)
-	ret.parent = p
+// NewITreeNode create a new tree node from the given instruction.
+// if ri is nill, then the node will be the root of a new tree
+func NewITreeNode(ri RobotInstruction) *ITreeNode {
+	var ret ITreeNode
+	ret.children = make([]*ITreeNode, 0)
+	ret.instruction = ri
 	return &ret
 }
 
-func (ri *RobotInstructionSet) Add(ins RobotInstruction) {
-	ris := NewRobotInstructionSet(ins)
-	ri.instructions = append(ri.instructions, ris)
+// AddChild creates a new tree node containing ins and adds it to the children
+// of this node
+func (ri *ITreeNode) AddChild(ins RobotInstruction) {
+	ris := NewITreeNode(ins)
+	ri.children = append(ri.children, ris)
 }
 
-func (ri *RobotInstructionSet) Generate(ctx context.Context, lhpr *wtype.LHPolicyRuleSet, lhpm *LHProperties) ([]RobotInstruction, error) {
+func (ri *ITreeNode) Generate(ctx context.Context, lhpr *wtype.LHPolicyRuleSet, lhpm *LHProperties) ([]RobotInstruction, error) {
 	ret := make([]RobotInstruction, 0, 1)
 
-	if ri.parent != nil {
-		arr, err := ri.parent.Generate(ctx, lhpr, lhpm)
+	if ri.instruction != nil {
+		arr, err := ri.instruction.Generate(ctx, lhpr, lhpm)
 
 		if err != nil {
 			return ret, err
 		}
 
-		// if the parent doesn't generate anything then it is our return - bottom out here
+		// if the instruction doesn't generate anything then it is our return - bottom out here
 		// assuming it's a Terminal
 		if len(arr) == 0 {
-			_, ok := ri.parent.(TerminalRobotInstruction)
+			_, ok := ri.instruction.(TerminalRobotInstruction)
 			if ok {
-				ret = append(ret, ri.parent)
+				ret = append(ret, ri.instruction)
 				return ret, nil
 			}
 		} else {
 			for _, ins := range arr {
-				ri.Add(ins)
+				ri.AddChild(ins)
 			}
 		}
 	}
 
-	for _, ins := range ri.instructions {
+	for _, ins := range ri.children {
 		arr, err := ins.Generate(ctx, lhpr, lhpm)
 
 		if err != nil {
@@ -80,8 +85,8 @@ func (ri *RobotInstructionSet) Generate(ctx context.Context, lhpr *wtype.LHPolic
 		ret = append(ret, arr...)
 	}
 
-	if ri.parent == nil {
-		// add the initialize and finalize instructions
+	if ri.instruction == nil {
+		// add the initialize and finalize children
 		ini := NewInitializeInstruction()
 		newret := make([]RobotInstruction, 0, len(ret)+2)
 		newret = append(newret, ini)
@@ -93,7 +98,7 @@ func (ri *RobotInstructionSet) Generate(ctx context.Context, lhpr *wtype.LHPolic
 
 	// might need to do this instead of current version
 	/*
-		else if ri.parent.Type == TFR {
+		else if ri.instruction.Type == TFR {
 			// update the vols
 			prms.Evaporate()
 		}
@@ -102,12 +107,17 @@ func (ri *RobotInstructionSet) Generate(ctx context.Context, lhpr *wtype.LHPolic
 	return ret, nil
 }
 
-func (ri *RobotInstructionSet) ToString(level int) string {
+// String get a multi-line string representation of the tree below this node
+func (ri *ITreeNode) String() string {
+	return ri.toString(0)
+}
+
+func (ri *ITreeNode) toString(level int) string {
 
 	name := ""
 
-	if ri.parent != nil {
-		name = ri.parent.Type().Name
+	if ri.instruction != nil {
+		name = ri.instruction.Type().Name
 	}
 	s := ""
 	for i := 0; i < level-1; i++ {
@@ -118,8 +128,8 @@ func (ri *RobotInstructionSet) ToString(level int) string {
 		s += fmt.Sprintf("\t")
 	}
 	s += fmt.Sprintf("{\n")
-	for _, ins := range ri.instructions {
-		s += ins.ToString(level + 1)
+	for _, ins := range ri.children {
+		s += ins.toString(level + 1)
 	}
 	for i := 0; i < level; i++ {
 		s += fmt.Sprintf("\t")

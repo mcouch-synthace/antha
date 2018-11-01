@@ -1,8 +1,6 @@
 package liquidhandling
 
 import (
-	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/antha-lang/antha/antha/anthalib/wtype"

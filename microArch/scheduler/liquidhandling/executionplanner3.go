@@ -52,7 +52,7 @@ func hasSplit(inss []*wtype.LHInstruction) bool {
 func ExecutionPlanner3(ctx context.Context, request *LHRequest, robot *liquidhandling.LHProperties) (*LHRequest, error) {
 	ch := request.InstructionChain
 
-	request.InstructionSet = liquidhandling.NewRobotInstructionSet(nil)
+	request.InstructionTree = liquidhandling.NewITreeNode(nil)
 
 	for {
 		if ch == nil {
@@ -61,7 +61,7 @@ func ExecutionPlanner3(ctx context.Context, request *LHRequest, robot *liquidhan
 
 		if ch.Values[0].Type == wtype.LHIPRM {
 			prm := liquidhandling.NewMessageInstruction(ch.Values[0])
-			request.InstructionSet.Add(prm)
+			request.InstructionTree.AddChild(prm)
 		} else if hasSplit(ch.Values) {
 			if !allSplits(ch.Values) {
 				insTypes := func(inss []*wtype.LHInstruction) string {
@@ -76,7 +76,7 @@ func ExecutionPlanner3(ctx context.Context, request *LHRequest, robot *liquidhan
 			}
 
 			splitBlock := liquidhandling.NewSplitBlockInstruction(ch.Values)
-			request.InstructionSet.Add(splitBlock)
+			request.InstructionTree.AddChild(splitBlock)
 		} else {
 			// otherwise...
 			// make a transfer block instruction out of the incoming instructions
@@ -85,12 +85,12 @@ func ExecutionPlanner3(ctx context.Context, request *LHRequest, robot *liquidhan
 
 			tfb := liquidhandling.NewTransferBlockInstruction(ch.Values)
 
-			request.InstructionSet.Add(tfb)
+			request.InstructionTree.AddChild(tfb)
 		}
 		ch = ch.Child
 	}
 
-	inx, err := request.InstructionSet.Generate(ctx, request.Policies(), robot)
+	inx, err := request.InstructionTree.Generate(ctx, request.Policies(), robot)
 
 	if err != nil {
 		return nil, err

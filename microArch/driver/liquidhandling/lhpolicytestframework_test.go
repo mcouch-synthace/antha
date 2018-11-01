@@ -1,7 +1,6 @@
 package liquidhandling
 
 import (
-	"github.com/pkg/errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -97,11 +96,16 @@ func stringInstructions(inss []RobotInstruction) string {
 }
 
 func (self *PolicyTest) Run(t *testing.T) {
-
 	t.Run(self.Name, func(t *testing.T) {
 		self.run(t)
 	})
+}
 
+func (self *PolicyTest) expected(err error) bool {
+	if self.Error != "" && err != nil {
+		return self.Error == err.Error()
+	}
+	return err == nil && self.Error == ""
 }
 
 func (self *PolicyTest) run(t *testing.T) {
@@ -120,29 +124,15 @@ func (self *PolicyTest) run(t *testing.T) {
 		rule.AddToPolicy(policySet)
 	}
 
-	set := NewRobotInstructionSet(self.Instruction)
-	ris, err := set.Generate(ctx, policySet, self.Robot)
-	if err != nil {
-		if self.Error == "" {
-			err = errors.Wrapf(err, "%s: unexpected error", self.Name)
-			t.Error(err)
-		} else if self.Error != err.Error() {
+	if ris, err := NewITreeNode(self.Instruction).Generate(ctx, policySet, self.Robot); err != nil {
+		if !self.expected(err) {
 			t.Errorf("errors don't match:\ne: \"%s\",\ng: \"%s\"", self.Error, err.Error())
 		}
-		return
-	}
-
-	if self.Error != "" {
-		t.Errorf("error not generated: expected \"%s\"", self.Error)
-		return
-	}
-
-	if g := stringInstructions(ris); self.ExpectedInstructions != g {
+	} else if g := stringInstructions(ris); self.ExpectedInstructions != g {
 		t.Errorf("instruction types don't match\n  g: %s\n  e: %s", g, self.ExpectedInstructions)
-		return
-	}
-
-	for _, a := range self.Assertions {
-		a.Assert(t, ris)
+	} else {
+		for _, a := range self.Assertions {
+			a.Assert(t, ris)
+		}
 	}
 }

@@ -576,8 +576,7 @@ func generateRobotInstructions(t *testing.T, ctx context.Context, inss []*wtype.
 	}
 
 	//generate the low level instructions
-	instructionSet := NewRobotInstructionSet(tb)
-	ris2, err := instructionSet.Generate(ctx, pol, rbt)
+	ris2, err := NewITreeNode(tb).Generate(ctx, pol, rbt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -787,8 +786,7 @@ func generateRobotInstructions2(ctx context.Context, inss []*wtype.LHInstruction
 	}
 
 	//generate the low level instructions
-	instructionSet := NewRobotInstructionSet(tb)
-	ris2, _ := instructionSet.Generate(ctx, pol, rbt)
+	ris2, _ := NewITreeNode(tb).Generate(ctx, pol, rbt)
 
 	return ris2
 }
