@@ -29,7 +29,8 @@ import (
 	"github.com/antha-lang/antha/antha/anthalib/wtype"
 )
 
-// ITreeNode a node within a RobotInstruction tree
+// ITreeNode a node within a RobotInstruction tree.
+// The children in each node are the output of instruction.Generate
 type ITreeNode struct {
 	instruction RobotInstruction
 	children    []*ITreeNode
@@ -38,10 +39,9 @@ type ITreeNode struct {
 // NewITreeNode create a new tree node from the given instruction.
 // if ri is nill, then the node will be the root of a new tree
 func NewITreeNode(ri RobotInstruction) *ITreeNode {
-	var ret ITreeNode
-	ret.children = make([]*ITreeNode, 0)
-	ret.instruction = ri
-	return &ret
+	return &ITreeNode{
+		instruction: ri,
+	}
 }
 
 // MakeTreeRoot construct the root node of the RobotInstruction tree
@@ -112,42 +112,44 @@ func (ri *ITreeNode) AddChild(ins RobotInstruction) {
 	ri.children = append(ri.children, ris)
 }
 
+// Generate (re)generate all instructions below this node
 func (ri *ITreeNode) Generate(ctx context.Context, lhpr *wtype.LHPolicyRuleSet, lhpm *LHProperties) ([]RobotInstruction, error) {
-	ret := make([]RobotInstruction, 0, 1)
+	fmt.Println("Generate Called")
+	defer fmt.Println("Generate Return")
+	return ri.generate(ctx, lhpr, lhpm, nil)
+}
 
+func (ri *ITreeNode) generate(ctx context.Context, lhpr *wtype.LHPolicyRuleSet, lhpm *LHProperties, ret []RobotInstruction) ([]RobotInstruction, error) {
+
+	// call generate on our own instruction
 	if ri.instruction != nil {
-		arr, err := ri.instruction.Generate(ctx, lhpr, lhpm)
-
-		if err != nil {
-			return ret, err
-		}
-
-		// if the instruction doesn't generate anything then it is our return - bottom out here
-		// assuming it's a Terminal
-		if len(arr) == 0 {
-			_, ok := ri.instruction.(TerminalRobotInstruction)
-			if ok {
+		ri.children = nil
+		if children, err := ri.instruction.Generate(ctx, lhpr, lhpm); err != nil {
+			return nil, err
+		} else if len(children) == 0 {
+			// if the instruction doesn't generate anything then we've reached a leaf
+			if _, ok := ri.instruction.(TerminalRobotInstruction); ok {
 				ret = append(ret, ri.instruction)
 				return ret, nil
 			}
 		} else {
-			for _, ins := range arr {
-				ri.AddChild(ins)
+			for _, child := range children {
+				ri.AddChild(child)
 			}
 		}
 	}
 
+	// call generate for each child in turn
 	for _, ins := range ri.children {
-		arr, err := ins.Generate(ctx, lhpr, lhpm)
-
-		if err != nil {
-			return arr, err
+		if r, err := ins.generate(ctx, lhpr, lhpm, ret); err != nil {
+			return r, err
+		} else {
+			ret = r
 		}
-		ret = append(ret, arr...)
 	}
 
+	// add the initialize and finalize children if we're the root
 	if ri.instruction == nil {
-		// add the initialize and finalize children
 		ini := NewInitializeInstruction()
 		newret := make([]RobotInstruction, 0, len(ret)+2)
 		newret = append(newret, ini)
@@ -156,14 +158,6 @@ func (ri *ITreeNode) Generate(ctx context.Context, lhpr *wtype.LHPolicyRuleSet, 
 		newret = append(newret, fin)
 		ret = newret
 	}
-
-	// might need to do this instead of current version
-	/*
-		else if ri.instruction.Type == TFR {
-			// update the vols
-			prms.Evaporate()
-		}
-	*/
 
 	return ret, nil
 }
