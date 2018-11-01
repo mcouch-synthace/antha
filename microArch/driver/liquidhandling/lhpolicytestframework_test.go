@@ -1,12 +1,22 @@
 package liquidhandling
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/antha-lang/antha/antha/anthalib/wtype"
+	"github.com/antha-lang/antha/inventory/cache/plateCache"
+	"github.com/antha-lang/antha/inventory/testinventory"
 )
+
+func GetContextForTest() context.Context {
+	ctx := testinventory.NewContext(context.Background())
+	//also need to add a plateCache as we're not using the liquidhandler.Plan interface
+	ctx = plateCache.NewContext(ctx)
+	return ctx
+}
 
 const (
 	defaultZSpeed       = 140.0
