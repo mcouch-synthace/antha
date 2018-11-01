@@ -68,13 +68,12 @@ import (
 // send it in as an argument
 
 type Liquidhandler struct {
-	Properties       *liquidhandling.LHProperties
-	FinalProperties  *liquidhandling.LHProperties
-	SetupAgent       func(context.Context, *LHRequest, *liquidhandling.LHProperties) (*LHRequest, error)
-	LayoutAgent      func(context.Context, *LHRequest, *liquidhandling.LHProperties) (*LHRequest, error)
-	ExecutionPlanner func(context.Context, *LHRequest, *liquidhandling.LHProperties) (*LHRequest, error)
-	PolicyManager    *LHPolicyManager
-	plateIDMap       map[string]string // which plates are before / after versions
+	Properties      *liquidhandling.LHProperties
+	FinalProperties *liquidhandling.LHProperties
+	SetupAgent      func(context.Context, *LHRequest, *liquidhandling.LHProperties) (*LHRequest, error)
+	LayoutAgent     func(context.Context, *LHRequest, *liquidhandling.LHProperties) (*LHRequest, error)
+	PolicyManager   *LHPolicyManager
+	plateIDMap      map[string]string // which plates are before / after versions
 }
 
 // initialize the liquid handling structure
@@ -82,8 +81,6 @@ func Init(properties *liquidhandling.LHProperties) *Liquidhandler {
 	lh := Liquidhandler{}
 	lh.SetupAgent = BasicSetupAgent
 	lh.LayoutAgent = ImprovedLayoutAgent
-	//lh.ExecutionPlanner = ImprovedExecutionPlanner
-	lh.ExecutionPlanner = ExecutionPlanner3
 	lh.Properties = properties
 	lh.FinalProperties = properties
 	lh.plateIDMap = make(map[string]string)
@@ -825,22 +822,24 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 	}
 
 	// build the instruction tree
-	props := this.Properties.Dup()
+	props := this.Properties.DupKeepIDs()
 	if root, err := liquidhandling.MakeTreeRoot(ctx, request.InstructionChain, request.Policies(), props); err != nil {
 		return err
-	} else if inx, err := request.InstructionTree.Generate(ctx, request.Policies(), robot); err != nil {
+	} else {
+		request.InstructionTree = root
+	}
+
+	if inx, err := request.InstructionTree.Generate(ctx, request.Policies(), props); err != nil {
 		return err
 	} else {
-		instrx := make([]liquidhandling.TerminalRobotInstruction, 0, len(inx))
+		request.Instructions = make([]liquidhandling.TerminalRobotInstruction, 0, len(inx))
 		for _, ins := range inx {
-			if tri, ok := inx[i].(liquidhandling.TerminalRobotInstruction); !ok {
-				fmt.Println("ERROR: Instruction wrong type (", inx[i].Type().Name, ")")
+			if tri, ok := ins.(liquidhandling.TerminalRobotInstruction); !ok {
+				fmt.Println("ERROR: Instruction wrong type (", ins.Type().Name, ")")
 			} else {
-				instrx = append(instrx, inx[i].(liquidhandling.TerminalRobotInstruction))
+				request.Instructions = append(request.Instructions, tri)
 			}
 		}
-		request.InstructionTree = root
-		request.Instructions = instrx
 		this.FinalProperties = props
 	}
 
@@ -925,20 +924,6 @@ func (this *Liquidhandler) Layout(ctx context.Context, request *LHRequest) (*LHR
 	// again needs to be parameterized
 
 	return this.LayoutAgent(ctx, request, this.Properties)
-}
-
-// GenerateInstructions generate the low level liquidhandling instructions (LHRequest.Instructions)
-// from the high level liquidhandling instructions (LHRequest.LHInstructions) with the initial
-// robot state given by this.Properties
-// returns a new request object containing the TerminalRobotInstructions and the final robot
-// state after all instructions are executed
-func (this *Liquidhandler) GenerateInstructions(ctx context.Context, request *LHRequest) (*LHRequest, *liquidhandling.LHProperties, error) {
-	robot := this.Properties.DupKeepIDs()
-	if rq, err := this.ExecutionPlanner(ctx, request, robot); err != nil {
-		return nil, nil, err
-	} else {
-		return rq, robot, err
-	}
 }
 
 func OutputSetup(robot *liquidhandling.LHProperties) {

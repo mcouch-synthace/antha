@@ -735,7 +735,6 @@ func TestPlateReuse(t *testing.T) {
 		}
 
 		rq.InputPlates[plateid] = plate
-		fmt.Printf("Adding input plate: %v\n", plate)
 	}
 	rq.InputPlatetypes = append(rq.InputPlatetypes, GetPlateForTest())
 	rq.OutputPlatetypes = append(rq.OutputPlatetypes, GetPlateForTest())
@@ -1060,9 +1059,8 @@ func TestExecutionPlanning(t *testing.T) {
 					Sampler:       mixer.Sample,
 				},
 			}),
-			InputPlates:       []*wtype.LHPlate{GetTroughForTest()},
-			OutputPlates:      []*wtype.LHPlate{GetPlateForTest()},
-			PrintInstructions: true,
+			InputPlates:  []*wtype.LHPlate{GetTroughForTest()},
+			OutputPlates: []*wtype.LHPlate{GetPlateForTest()},
 			Assertions: Assertions{
 				NumberOfAssertion(liquidhandling.ASP, 4),
 				NumberOfAssertion(liquidhandling.DSP, 4),

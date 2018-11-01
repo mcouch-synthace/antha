@@ -45,7 +45,7 @@ func NewITreeNode(ri RobotInstruction) *ITreeNode {
 }
 
 // MakeTreeRoot construct the root node of the RobotInstruction tree
-func MakeTreeRoot(ctx context.Context, ch *IChain, policies *wtype.LHPolicyRuleSet, robot *LHProperties) (*ITreeNode, error) {
+func MakeTreeRoot(ctx context.Context, ch *wtype.IChain, policies *wtype.LHPolicyRuleSet, robot *LHProperties) (*ITreeNode, error) {
 
 	ret := NewITreeNode(nil)
 
