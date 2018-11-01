@@ -824,12 +824,24 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 		return err
 	}
 
-	// build the instruction tree and generate the low level robot instructions - first pass
-	if rq, finalProps, err := this.GenerateInstructions(ctx, request); err != nil {
+	// build the instruction tree
+	props := this.Properties.Dup()
+	if root, err := liquidhandling.MakeTreeRoot(ctx, request.InstructionChain, request.Policies(), props); err != nil {
+		return err
+	} else if inx, err := request.InstructionTree.Generate(ctx, request.Policies(), robot); err != nil {
 		return err
 	} else {
-		request = rq
-		this.FinalProperties = finalProps
+		instrx := make([]liquidhandling.TerminalRobotInstruction, 0, len(inx))
+		for _, ins := range inx {
+			if tri, ok := inx[i].(liquidhandling.TerminalRobotInstruction); !ok {
+				fmt.Println("ERROR: Instruction wrong type (", inx[i].Type().Name, ")")
+			} else {
+				instrx = append(instrx, inx[i].(liquidhandling.TerminalRobotInstruction))
+			}
+		}
+		request.InstructionTree = root
+		request.Instructions = instrx
+		this.FinalProperties = props
 	}
 
 	if request.Options.PrintInstructions {
@@ -844,15 +856,6 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 	// the generated low level instructions, the carry volume, and well residuals
 	if err := this.shrinkVolumes(request); err != nil {
 		return err
-	}
-
-	// now regenerate the instructions with the updated input volumes
-	if rq, finalProps, err := this.GenerateInstructions(ctx, request); err != nil {
-		return errors.WithMessage(err, "in second round of execution planning")
-	} else {
-		request = rq
-		// duplicate this time so that final plate IDs are different
-		this.FinalProperties = finalProps.Dup()
 	}
 
 	// Ensures tip boxes and wastes are correct for initial and final robot states

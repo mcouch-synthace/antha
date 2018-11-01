@@ -44,6 +44,67 @@ func NewITreeNode(ri RobotInstruction) *ITreeNode {
 	return &ret
 }
 
+// MakeTreeRoot construct the root node of the RobotInstruction tree
+func MakeTreeRoot(ctx context.Context, ch *IChain, policies *wtype.LHPolicyRuleSet, robot *LHProperties) (*ITreeNode, error) {
+
+	ret := NewITreeNode(nil)
+
+	for {
+		if ch == nil {
+			break
+		}
+
+		if ch.Values[0].Type == wtype.LHIPRM {
+			prm := NewMessageInstruction(ch.Values[0])
+			ret.AddChild(prm)
+		} else if hasSplit(ch.Values) {
+			if !allSplits(ch.Values) {
+				insTypes := func(inss []*wtype.LHInstruction) string {
+					s := ""
+					for _, ins := range inss {
+						s += ins.InsType() + " "
+					}
+
+					return s
+				}
+				return nil, fmt.Errorf("Internal error: Failure in instruction sorting - got types %s in layer starting with split", insTypes(ch.Values))
+			}
+
+			splitBlock := NewSplitBlockInstruction(ch.Values)
+			ret.AddChild(splitBlock)
+		} else {
+			if transfers, err := MakeTransfers(ctx, ch.Values, policies, robot); err != nil {
+				return ret, err
+			} else {
+				for _, transfer := range transfers {
+					ret.AddChild(transfer)
+				}
+			}
+		}
+		ch = ch.Child
+	}
+
+	return ret, nil
+}
+
+func allSplits(inss []*wtype.LHInstruction) bool {
+	for _, ins := range inss {
+		if ins.Type != wtype.LHISPL {
+			return false
+		}
+	}
+	return true
+}
+
+func hasSplit(inss []*wtype.LHInstruction) bool {
+	for _, ins := range inss {
+		if ins.Type == wtype.LHISPL {
+			return true
+		}
+	}
+	return false
+}
+
 // AddChild creates a new tree node containing ins and adds it to the children
 // of this node
 func (ri *ITreeNode) AddChild(ins RobotInstruction) {

@@ -2,7 +2,6 @@ package liquidhandling
 
 type RobotInstructionVisitor interface {
 	Transfer(*TransferInstruction)
-	TransferBlock(*TransferBlockInstruction)
 	SingleChannelBlock(*SingleChannelBlockInstruction)
 	MultiChannelBlock(*MultiChannelBlockInstruction)
 	SingleChannelTransfer(*SingleChannelTransferInstruction)
@@ -47,7 +46,6 @@ type RobotInstructionVisitor interface {
 
 type RobotInstructionBaseVisitor struct {
 	HandleTransfer              func(*TransferInstruction)
-	HandleTransferBlock         func(*TransferBlockInstruction)
 	HandleSingleChannelBlock    func(*SingleChannelBlockInstruction)
 	HandleMultiChannelBlock     func(*MultiChannelBlockInstruction)
 	HandleSingleChannelTransfer func(*SingleChannelTransferInstruction)
@@ -93,11 +91,6 @@ type RobotInstructionBaseVisitor struct {
 func (self RobotInstructionBaseVisitor) Transfer(ins *TransferInstruction) {
 	if self.HandleTransfer != nil {
 		self.HandleTransfer(ins)
-	}
-}
-func (self RobotInstructionBaseVisitor) TransferBlock(ins *TransferBlockInstruction) {
-	if self.HandleTransferBlock != nil {
-		self.HandleTransferBlock(ins)
 	}
 }
 func (self RobotInstructionBaseVisitor) SingleChannelBlock(ins *SingleChannelBlockInstruction) {

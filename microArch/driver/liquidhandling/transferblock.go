@@ -10,45 +10,25 @@ import (
 	"github.com/antha-lang/antha/inventory"
 )
 
-type TransferBlockInstruction struct {
-	BaseRobotInstruction
-	*InstructionType
-	Inss []*wtype.LHInstruction
-}
-
-func NewTransferBlockInstruction(inss []*wtype.LHInstruction) *TransferBlockInstruction {
-	tb := &TransferBlockInstruction{
-		InstructionType: TFB,
-		Inss:            inss,
-	}
-	tb.BaseRobotInstruction = NewBaseRobotInstruction(tb)
-	return tb
-}
-
-func (ins *TransferBlockInstruction) Visit(visitor RobotInstructionVisitor) {
-	visitor.TransferBlock(ins)
-}
-
-// this attempts to find arrays of destinations which can potentially be done simultaneously
+// MakeTransfers attempts to find arrays of destinations which can potentially be done simultaneously
 // via multichannel operation. At present this means they must be aligned in rows or columns
 // depending on the robot type and configuration
-
-func (ti TransferBlockInstruction) Generate(ctx context.Context, policy *wtype.LHPolicyRuleSet, robot *LHProperties) ([]RobotInstruction, error) {
+func MakeTransfers(ctx context.Context, lhinstructions []*wtype.LHInstruction, policy *wtype.LHPolicyRuleSet, robot *LHProperties) ([]RobotInstruction, error) {
 	var tfr []*TransferInstruction
 	var err error
 
 	// assessing evaporation with this potentially
 	//timer := robot.GetTimer()
 	inss := make([]RobotInstruction, 0, 1)
-	insm := make(map[string]*wtype.LHInstruction, len(ti.Inss))
+	insm := make(map[string]*wtype.LHInstruction, len(lhinstructions))
 	seen := make(map[string]bool)
 
-	for _, ins := range ti.Inss {
+	for _, ins := range lhinstructions {
 		insm[ins.ID] = ins
 	}
 
 	// list of ids
-	parallel_sets, prm, err := get_parallel_sets_robot(ctx, ti.Inss, robot, policy)
+	parallel_sets, prm, err := get_parallel_sets_robot(ctx, lhinstructions, robot, policy)
 
 	// what if prm is nil?
 
@@ -107,7 +87,7 @@ func (ti TransferBlockInstruction) Generate(ctx context.Context, policy *wtype.L
 	}
 
 	// stuff that can't be done in parallel
-	for _, ins := range ti.Inss {
+	for _, ins := range lhinstructions {
 		if seen[ins.ID] {
 			continue
 		}
@@ -493,10 +473,6 @@ func choose_parallel_sets(sets []SetOfIDSets, params []*wtype.LHChannelParameter
 	}
 
 	return ret, retp, nil
-}
-
-func (ti TransferBlockInstruction) GetParameter(name InstructionParameter) interface{} {
-	return ti.BaseRobotInstruction.GetParameter(name)
 }
 
 func mergeTransfers(tfrs []*TransferInstruction, policy *wtype.LHPolicyRuleSet) []*TransferInstruction {
