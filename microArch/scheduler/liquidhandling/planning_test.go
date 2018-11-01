@@ -17,13 +17,14 @@ import (
 )
 
 type PlanningTest struct {
-	Name          string
-	Liquidhandler *Liquidhandler
-	Instructions  InstructionBuilder
-	InputPlates   []*wtype.LHPlate
-	OutputPlates  []*wtype.LHPlate
-	ErrorPrefix   string
-	Assertions    Assertions
+	Name              string
+	Liquidhandler     *Liquidhandler
+	Instructions      InstructionBuilder
+	InputPlates       []*wtype.LHPlate
+	OutputPlates      []*wtype.LHPlate
+	PrintInstructions bool // whether to set request.Options.PrintInstrucitons, useful for debugging
+	ErrorPrefix       string
+	Assertions        Assertions
 }
 
 func (test *PlanningTest) Run(ctx context.Context, t *testing.T) {
@@ -48,6 +49,8 @@ func (test *PlanningTest) run(ctx context.Context, t *testing.T) {
 	}
 
 	request.OutputPlatetypes = append(request.OutputPlatetypes, test.OutputPlates...)
+
+	request.Options.PrintInstructions = test.PrintInstructions
 
 	if test.Liquidhandler == nil {
 		test.Liquidhandler = GetLiquidHandlerForTest(ctx)

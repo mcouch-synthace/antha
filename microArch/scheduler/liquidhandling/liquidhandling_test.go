@@ -1060,8 +1060,9 @@ func TestExecutionPlanning(t *testing.T) {
 					Sampler:       mixer.Sample,
 				},
 			}),
-			InputPlates:  []*wtype.LHPlate{GetTroughForTest()},
-			OutputPlates: []*wtype.LHPlate{GetPlateForTest()},
+			InputPlates:       []*wtype.LHPlate{GetTroughForTest()},
+			OutputPlates:      []*wtype.LHPlate{GetPlateForTest()},
+			PrintInstructions: true,
 			Assertions: Assertions{
 				NumberOfAssertion(liquidhandling.ASP, 4),
 				NumberOfAssertion(liquidhandling.DSP, 4),
