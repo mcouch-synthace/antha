@@ -821,26 +821,20 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 		return err
 	}
 
-	// build the instruction tree
-	props := this.Properties.DupKeepIDs()
-	if root, err := liquidhandling.MakeTreeRoot(ctx, request.InstructionChain, request.Policies(), props); err != nil {
+	// make the root layer of the instruction tree
+	// this consists of converting LHInstructions into transfers and matching up sources
+	if root, err := liquidhandling.MakeTreeRoot(ctx, request.InstructionChain, request.Policies(), this.Properties.DupKeepIDs()); err != nil {
 		return err
 	} else {
 		request.InstructionTree = root
 	}
 
-	if inx, err := request.InstructionTree.Generate(ctx, request.Policies(), props); err != nil {
+	// build the rest of the instruction tree, and get the low level instructions
+	if terminalInstructions, finalProps, err := request.InstructionTree.Generate(ctx, request.Policies(), this.Properties); err != nil {
 		return err
 	} else {
-		request.Instructions = make([]liquidhandling.TerminalRobotInstruction, 0, len(inx))
-		for _, ins := range inx {
-			if tri, ok := ins.(liquidhandling.TerminalRobotInstruction); !ok {
-				fmt.Println("ERROR: Instruction wrong type (", ins.Type().Name, ")")
-			} else {
-				request.Instructions = append(request.Instructions, tri)
-			}
-		}
-		this.FinalProperties = props
+		request.Instructions = terminalInstructions
+		this.FinalProperties = finalProps
 	}
 
 	if request.Options.PrintInstructions {
@@ -848,7 +842,6 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 		for _, ins := range request.Instructions {
 			fmt.Printf("  %s\n", liquidhandling.InsToString(ins))
 		}
-		OutputSetup(this.FinalProperties)
 	}
 
 	// accurately reduce the volume of autoallocated components to their minimum based on

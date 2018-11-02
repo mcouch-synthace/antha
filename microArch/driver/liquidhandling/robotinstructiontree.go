@@ -113,13 +113,14 @@ func (ri *ITreeNode) AddChild(ins RobotInstruction) {
 }
 
 // Generate (re)generate all instructions below this node
-func (ri *ITreeNode) Generate(ctx context.Context, lhpr *wtype.LHPolicyRuleSet, lhpm *LHProperties) ([]RobotInstruction, error) {
-	fmt.Println("Generate Called")
-	defer fmt.Println("Generate Return")
-	return ri.generate(ctx, lhpr, lhpm, nil)
+func (ri *ITreeNode) Generate(ctx context.Context, lhpr *wtype.LHPolicyRuleSet, lhpm *LHProperties) ([]TerminalRobotInstruction, *LHProperties, error) {
+	// make a copy because generate affects its input
+	props := lhpm.DupKeepIDs()
+	ins, err := ri.generate(ctx, lhpr, props, nil)
+	return ins, props, err
 }
 
-func (ri *ITreeNode) generate(ctx context.Context, lhpr *wtype.LHPolicyRuleSet, lhpm *LHProperties, ret []RobotInstruction) ([]RobotInstruction, error) {
+func (ri *ITreeNode) generate(ctx context.Context, lhpr *wtype.LHPolicyRuleSet, lhpm *LHProperties, ret []TerminalRobotInstruction) ([]TerminalRobotInstruction, error) {
 
 	// call generate on our own instruction
 	if ri.instruction != nil {
@@ -128,8 +129,8 @@ func (ri *ITreeNode) generate(ctx context.Context, lhpr *wtype.LHPolicyRuleSet, 
 			return nil, err
 		} else if len(children) == 0 {
 			// if the instruction doesn't generate anything then we've reached a leaf
-			if _, ok := ri.instruction.(TerminalRobotInstruction); ok {
-				ret = append(ret, ri.instruction)
+			if tri, ok := ri.instruction.(TerminalRobotInstruction); ok {
+				ret = append(ret, tri)
 				return ret, nil
 			}
 		} else {
@@ -148,15 +149,13 @@ func (ri *ITreeNode) generate(ctx context.Context, lhpr *wtype.LHPolicyRuleSet, 
 		}
 	}
 
-	// add the initialize and finalize children if we're the root
+	// add the initialize and finalize instructions if we're the root
 	if ri.instruction == nil {
-		ini := NewInitializeInstruction()
-		newret := make([]RobotInstruction, 0, len(ret)+2)
-		newret = append(newret, ini)
-		newret = append(newret, ret...)
-		fin := NewFinalizeInstruction()
-		newret = append(newret, fin)
-		ret = newret
+		r := make([]TerminalRobotInstruction, len(ret)+2)
+		r[0] = NewInitializeInstruction()
+		copy(r[1:], ret)
+		r[len(r)-1] = NewFinalizeInstruction()
+		ret = r
 	}
 
 	return ret, nil
