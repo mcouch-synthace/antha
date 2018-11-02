@@ -415,10 +415,28 @@ func (ins *TransferInstruction) ChooseChannels(prms *LHProperties) {
 	}
 }
 
+// UpdateFromToVolumes update the values of FVolume and TVolume based on the current
+// robot state
+func (ins *TransferInstruction) UpdateFromToVolumes(prms *LHProperties) error {
+	for _, mtp := range ins.Transfers {
+		for _, tp := range mtp.Transfers {
+			if err := tp.UpdateFromToVolumes(prms); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (ins *TransferInstruction) Generate(ctx context.Context, policy *wtype.LHPolicyRuleSet, prms *LHProperties) ([]RobotInstruction, error) {
+
+	// make sure that FVolume and TVolume are accurate
+	if err := ins.UpdateFromToVolumes(prms); err != nil {
+		return nil, err
+	}
+
 	// if the liquid handler is of the high-level type we cut the tree here
 	// after ensuring that the transfers are within limitations of the liquid handler
-
 	if prms.GetLHType() == HLLiquidHandler {
 		err := ins.ReviseTransferVolumes(prms)
 

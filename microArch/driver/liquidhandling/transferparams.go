@@ -2,6 +2,7 @@ package liquidhandling
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/antha-lang/antha/antha/anthalib/wtype"
 	"github.com/antha-lang/antha/antha/anthalib/wunit"
@@ -34,6 +35,39 @@ func (tp TransferParams) ToString() string {
 
 func (tp TransferParams) Zero() bool {
 	return tp.What == ""
+}
+
+// UpdateFromToVolume update the values of FVolume and TVolume based on the current
+// robot state
+func (tp *TransferParams) UpdateFromToVolumes(prms *LHProperties) error {
+
+	if tp.PltFrom != "" {
+		if v, err := tp.volumeAt(prms, tp.PltFrom, tp.WellFrom); err != nil {
+			return errors.WithMessage(err, "updating well from volume")
+		} else {
+			tp.FVolume = v
+		}
+	}
+
+	if tp.PltTo != "" {
+		if v, err := tp.volumeAt(prms, tp.PltTo, tp.WellTo); err != nil {
+			return errors.WithMessage(err, "updating well to volume")
+		} else {
+			tp.TVolume = v
+		}
+	}
+
+	return nil
+}
+
+func (tp *TransferParams) volumeAt(prms *LHProperties, position, wellAddress string) (wunit.Volume, error) {
+	if plate := prms.Plates[position]; plate == nil {
+		return wunit.ZeroVolume(), fmt.Errorf("no plate at %q", position)
+	} else if well, ok := plate.WellAtString(wellAddress); !ok {
+		return wunit.ZeroVolume(), fmt.Errorf("plate %s has no well %s", plate.Name(), wellAddress)
+	} else {
+		return well.CurrentVolume(), nil
+	}
 }
 
 func (tp TransferParams) Dup() TransferParams {
