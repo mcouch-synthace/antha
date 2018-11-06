@@ -1,0 +1,14 @@
+Todo for parked branch ANTHA-1810/regenInstructions
+
+There are two known issues:
+
+1 the tree generation step doesn't consistently apply changes to LHProperties
+
+This needs to happen correctly both in the case of high level liquid handler and low level
+- I had thought that the bottom of the tree would be the most sensible place to do this
+as the most information is available, but this may not be smartest
+
+2 Instructions which solely change IDs on generate may have no effect
+
+I.e. splitSample and Prompt. Need to add test cases for liquidhandler.Generate
+for these specifically to check whether more work is needed here
