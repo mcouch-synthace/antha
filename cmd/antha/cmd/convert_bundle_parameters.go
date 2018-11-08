@@ -90,8 +90,8 @@ func convertParametersAndConnections(in executeutil.Bundle, newElementNames Conv
 				// check for replacement parameter names
 				if newParameterName, newParameterFound := newElementNames.NewParameterMapping[parameterName]; newParameterFound {
 					newParameters[newParameterName] = value
-				} else if _, typeChangeFound := newElementNames.ParameterTypeChanges[parameterName]; typeChangeFound {
-					errs = append(errs, fmt.Sprintf("detected a parameter (%s) requiring type change for %s so cannot convert this parameter", parameterName, processName))
+				} else if typeChangeDetails, typeChangeFound := newElementNames.ParameterTypeChanges[parameterName]; typeChangeFound {
+					errs = append(errs, fmt.Sprintf("detected a parameter %q of process %q requires type change of %s. Please manually convert this parameter", parameterName, processName, string(typeChangeDetails)))
 				} else if !search.InStrings(newElementNames.DeprecatedParameters, parameterName) {
 					newParameters[parameterName] = value
 				}
