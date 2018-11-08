@@ -27,7 +27,7 @@ func convertAllBundles(cmd *cobra.Command, args []string) error {
 
 	// find metadata files
 	elements := newElements()
-	if err := filepath.Walk(viper.GetString("rootDir"), elements.Walk); err != nil {
+	if err := filepath.Walk(viper.GetString("elementsDir"), elements.Walk); err != nil {
 		return err
 	}
 
@@ -42,7 +42,7 @@ func convertAllBundles(cmd *cobra.Command, args []string) error {
 			BundlePath: path,
 			Dir:        dir,
 		})
-	} else if allBundles, err = executeutil.FindTestInputs(viper.GetString("rootDir")); err != nil {
+	} else if allBundles, err = executeutil.FindTestInputs(viper.GetString("bundlesDir")); err != nil {
 		return err
 	}
 
@@ -104,7 +104,8 @@ func init() {
 	convertCmd.AddCommand(c)
 
 	flags := c.Flags()
-	flags.String("rootDir", ".", "root directory to search for metadata files with new element mapping and, if specificFile is not specified, test bundles to update")
+	flags.String("elementsDir", ".", "root directory to search for metadata files with new element mapping")
+	flags.String("bundlesDir", ".", "root directory to search for test bundles to update if specificFile is not specified")
 	flags.String("addPrefix", "", "adds a common prefix to the start of all updated bundle files")
 	flags.String("specificFile", "", "specify a single bundle file to convert with all metadata files found in rootDir")
 }
