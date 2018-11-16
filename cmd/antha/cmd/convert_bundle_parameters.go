@@ -77,8 +77,9 @@ func convertParametersAndConnections(in executeutil.Bundle, newElementNames Conv
 
 	for processName, element := range in.Processes {
 
-		// check if element name is to be replaced
-		if element.Component == newElementNames.OldElementName {
+		// check if element name is to be replaced or is already equal to new element name
+		// in order to suupport updating of parameter names.
+		if element.Component == newElementNames.OldElementName || element.Component == newElementNames.NewElementName {
 			// get existing parameters
 			parametersForThisProcess, found := in.Parameters[processName]
 			if !found {
