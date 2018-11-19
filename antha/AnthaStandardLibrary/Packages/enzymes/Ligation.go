@@ -489,7 +489,7 @@ func (assemblyParameters Assemblyparameters) Insert(result wtype.DNASequence) (i
 const thresholdForOnlyTestingPartsInSpecifiedOrder int = 4
 
 /*
-Assemblysimulator simulate assembly of Assemblyparameters: returns status, number of correct assemblies, any restriction sites found, new DNA Sequences and an error.
+Assemblysimulator simulates assembly of Assemblyparameters: returns status, number of correct assemblies, any restriction sites found, new DNA Sequences and an error.
 
 Currently the more comprehensive assembly validation function (FindAllAssemblyProducts) tests all part order combinations;
 this is thorough and more powerful at detecting potential mis assemblies but is very computationally expensive hence
