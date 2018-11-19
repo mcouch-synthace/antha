@@ -506,7 +506,7 @@ func Assemblysimulator(assemblyparameters Assemblyparameters) (s string, success
 	var failedAssemblies []DigestedFragment
 	var plasmidProducts []wtype.DNASequence
 
-	if len(assemblyparameters.Partsinorder) > 6 {
+	if len(assemblyparameters.Partsinorder) > 4 {
 		failedAssemblies, plasmidProducts, _, err = JoinXNumberOfParts(assemblyparameters.Vector, assemblyparameters.Partsinorder, enzyme)
 	} else {
 		failedAssemblies, plasmidProducts, err = FindAllAssemblyProducts(assemblyparameters.Vector, assemblyparameters.Partsinorder, enzyme)
