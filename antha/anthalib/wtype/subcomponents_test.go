@@ -56,7 +56,7 @@ func TestAddandGetComponent(t *testing.T) {
 		t.Errorf("expected error adding equalfold sub components to liquid but no error reported. New Sub components: %v", mediaMixture.SubComponents.AllComponents())
 	}
 
-	for test, _ := range tests.Components {
+	for test := range tests.Components {
 		if !mediaMixture.HasSubComponent(test) {
 			t.Errorf(
 				"Expected sub component %s to be found but only found these: %+v",
