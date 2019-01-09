@@ -24,12 +24,13 @@ func TestAddandGetComponent(t *testing.T) {
 
 		return c
 	}
-	someComponents := ComponentList{Components: map[string]wunit.Concentration{
-		"glycerol": wunit.NewConcentration(0.25, "g/l"),
-		"IPTG":     wunit.NewConcentration(0.25, "mM/l"),
-		"water":    wunit.NewConcentration(0.25, "v/v"),
-		"LB":       wunit.NewConcentration(0.25, "X"),
-	},
+	someComponents := ComponentList{
+		Components: map[string]wunit.Concentration{
+			"glycerol": wunit.NewConcentration(0.25, "g/l"),
+			"IPTG":     wunit.NewConcentration(0.25, "mM/l"),
+			"water":    wunit.NewConcentration(0.25, "v/v"),
+			"LB":       wunit.NewConcentration(0.25, "X"),
+		},
 	}
 	mediaMixture := newTestComponent("LB",
 		LTWater,
@@ -38,21 +39,18 @@ func TestAddandGetComponent(t *testing.T) {
 		wunit.NewVolume(2000.0, "ul"),
 		ComponentList{})
 
-	err := mediaMixture.AddSubComponents(someComponents)
-
-	if err != nil {
+	if err := mediaMixture.AddSubComponents(someComponents); err != nil {
 		t.Error(err)
 	}
 
-	tests := ComponentList{Components: map[string]wunit.Concentration{
-		"Glycerol":  wunit.NewConcentration(0.25, "g/l"),
-		"GLYCEROL ": wunit.NewConcentration(0.25, "g/l"),
-	},
+	tests := ComponentList{
+		Components: map[string]wunit.Concentration{
+			"Glycerol":  wunit.NewConcentration(0.25, "g/l"),
+			"GLYCEROL ": wunit.NewConcentration(0.25, "g/l"),
+		},
 	}
 
-	err = mediaMixture.AddSubComponents(tests)
-
-	if err == nil {
+	if err := mediaMixture.AddSubComponents(tests); err == nil {
 		t.Errorf("expected error adding equalfold sub components to liquid but no error reported. New Sub components: %v", mediaMixture.SubComponents.AllComponents())
 	}
 
