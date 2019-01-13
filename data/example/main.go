@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/antha-lang/antha/data"
 )
@@ -24,20 +25,21 @@ func ExampleSliceSeries() {
 
 	// iterate over the entire Table.
 	for record := range tab.Iter() {
-		fmt.Println(record)
 		m, _ := record.Observation("measure")
-		fmt.Println(m.MustInt())
+		fmt.Println("int measure value:", m.MustInt())
 	}
-	// TODO...
-	// // produce a new Table by filtering dynamically.
-	// smallerTab := tab.Filter(data.Eq{"label", "aa"})
+	// produce a new Table by filtering
+	smallerTab := tab.Filter(data.Eq{Col: "label", Val: "aa"})
+	fmt.Println("after filter\n", smallerTab.ToRows())
+	// note the exact type matching required here
+	fmt.Println("after filter 2\n", smallerTab.Filter(data.Eq{"measure", int64(0)}).ToRows())
 
-	// // add a column
-	// extended := tab.ExtendBy(func(r Row) {}, "colInt", reflect.Int32)
-
-	// // get all the records.
-	// recordsFiltered := smallerTab.ToRows()
-	// fmt.Println("after filter\n", recordsFiltered)
+	// add a column
+	extended := tab.ExtendBy(func(r data.Row) interface{} {
+		measure, _ := r.Observation("measure")
+		return float64(measure.MustInt()) * float64(2.5)
+	}, "multiplied", reflect.TypeOf(float64(0)))
+	fmt.Println("extended\n", extended.ToRows())
 }
 
 func main() {

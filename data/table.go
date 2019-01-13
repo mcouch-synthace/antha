@@ -35,20 +35,12 @@ func (t *Table) Iter() <-chan Row {
 	channel := make(chan Row)
 	iter := t.read(t)
 	go func() {
-		for {
-			rowRaw, err := iter.Next()
-			if err != nil {
-				close(channel)
-				if err == endIteration {
-					return
-				}
-				// TODO panic here?
-				return
-			}
+		for iter.Next() {
+			rowRaw := iter.Value()
 			row := rowRaw.(Row)
 			channel <- row
-
 		}
+		close(channel)
 	}()
 	return channel
 }
@@ -60,29 +52,29 @@ type lazyRowIter struct {
 }
 
 func newLzyIter(t *Table) iterator {
-	i := &lazyRowIter{}
+	i := &lazyRowIter{index: -1}
 	for _, ser := range t.series {
-		i.seriesRead = append(i.seriesRead, ser.read(ser))
 		i.cols = append(i.cols, &ser.col)
+		i.seriesRead = append(i.seriesRead, ser.read(ser))
 	}
 	return i
 }
 
-func (i *lazyRowIter) State() error {
-	return nil
-}
-
-func (i *lazyRowIter) Next() (interface{}, error) {
-	r := Row{Index: Index(i.index)}
-	for idx, sRead := range i.seriesRead {
-		value, err := sRead.Next()
-		if err != nil {
-			return nil, err
+func (i *lazyRowIter) Next() bool {
+	for _, sRead := range i.seriesRead {
+		if !sRead.Next() {
+			return false
 		}
-		r.Values = append(r.Values, Observation{col: i.cols[idx], value: value})
 	}
 	i.index++
-	return r, nil
+	return true
+}
+func (i *lazyRowIter) Value() interface{} {
+	r := Row{Index: Index(i.index)}
+	for c, sRead := range i.seriesRead {
+		r.Values = append(r.Values, Observation{col: i.cols[c], value: sRead.Value()})
+	}
+	return r
 }
 
 // ToRows materializes data: may be very expensive
@@ -95,8 +87,8 @@ func (t *Table) ToRows() Rows {
 }
 
 // Slice TODO semantics,  This should probably materialize lazy tables.
-func (t *Table) Slice(start, endExclusive int) (*Table, error) {
-	return nil, nil
+func (t *Table) Slice(start, endExclusive int) *Table {
+	return nil
 }
 
 // Key returns the key columns
@@ -131,8 +123,9 @@ func (t *Table) Join(other Joinable) *Table {
 }
 
 // ExtendBy adds a column by applying f.
-func (t *Table) ExtendBy(f func(r Row) (interface{}, error), newColumn ColumnName, newType reflect.Type) *Table {
-	return nil
+// TODO the implicit dependency on the table schema for t (via Row) is a bit ugly here
+func (t *Table) ExtendBy(f func(r Row) interface{}, newCol ColumnName, newType reflect.Type) *Table {
+	return extendTable(f, newCol, newType, t)
 }
 
 // Copy gives a new table, optionally with duplicate Series data

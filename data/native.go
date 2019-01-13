@@ -27,30 +27,26 @@ func NewSliceSeries(col ColumnName, values interface{}) (*Series, error) {
 			ser:    s,
 			rValue: rValue,
 			len:    len,
+			pos:    -1,
 		}
 	}
 	return ser, nil
 }
 
 type sliceIter struct {
-	ser       *Series
-	rValue    reflect.Value
-	cursorPos int
-	len       int
+	ser    *Series
+	rValue reflect.Value
+	pos    int
+	len    int
 }
 
-// slice iterator is never in error state
-func (i *sliceIter) State() error {
-	return nil
+func (i *sliceIter) Next() bool {
+	i.pos++
+	return i.pos < i.len
 }
 
-func (i *sliceIter) Next() (interface{}, error) {
-	i.cursorPos++
-	if i.cursorPos > i.len {
-		// avoid panic
-		return nil, endIteration
-	}
-	return i.rValue.Index(i.cursorPos - 1).Interface(), nil
+func (i *sliceIter) Value() interface{} {
+	return i.rValue.Index(i.pos).Interface()
 }
 
 // FromRows constructs a new Table

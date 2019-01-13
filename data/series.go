@@ -57,14 +57,9 @@ func (o Observation) MustString() string {
 
 //etcetera
 
-// endIteration happens when an iteration is exhausted
-var endIteration = errors.New("endIteration")
-
 type iterator interface {
-	State() error
-	// next yields a single value or nil. endIteration signals end
-	// TODO betterer api?
-	Next() (interface{}, error)
+	Next() bool // false = end iteration
+	Value() interface{}
 }
 
 // Series is a named sequence of values. for larger datasets this sequence may
