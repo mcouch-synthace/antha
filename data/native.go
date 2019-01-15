@@ -22,9 +22,9 @@ func NewSliceSeries(col ColumnName, values interface{}) (*Series, error) {
 		col: col,
 	}
 	// index into the slice reflectively (slow)
-	ser.read = func(s *Series) iterator {
+	ser.read = func(_ seriesIterCache) iterator {
 		return &sliceIter{
-			ser:    s,
+			ser:    ser,
 			rValue: rValue,
 			len:    len,
 			pos:    -1,

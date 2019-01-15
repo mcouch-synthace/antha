@@ -1,6 +1,7 @@
 package data
 
 import (
+	"github.com/pkg/errors"
 	"reflect"
 )
 
@@ -11,29 +12,47 @@ import (
 type Table struct {
 	series []*Series
 	// this must return Row
-	read func(*Table) iterator
+	read func([]*Series) *tableIterator
 }
 
 // NewTable gives lowlevel access.  TODO semantics if jagged columns, duplicates etc
 func NewTable(series []*Series) *Table {
 	return &Table{
 		series: series,
-		read:   newLzyIter,
+		read:   newTableIterator,
 	}
 }
+
+// Schema returns the type information for the Table
+func (t *Table) Schema() Schema {
+	return newSchema(t.series)
+}
+
+// TODO do we need this
 func (t *Table) Series() []*Series {
 	return nil
 }
 
-func (t *Table) ColumnNames() []ColumnName {
-	return nil
+func (t *Table) seriesMap() map[ColumnName]*Series {
+
+	schema := t.Schema()
+	byName := map[ColumnName]*Series{}
+	for n, i := range schema.byName {
+		byName[n] = t.series[i]
+	}
+	return byName
 }
+
+// TODO do we need this
+// func (t *Table) ColumnNames() []ColumnName {
+// 	return nil
+// }
 
 // Iter iterates over the entire table, no buffer (so blocking)
 // TODO leaking a goroutine here?  need a control channel.
 func (t *Table) Iter() <-chan Row {
 	channel := make(chan Row)
-	iter := t.read(t)
+	iter := t.read(t.series)
 	go func() {
 		for iter.Next() {
 			rowRaw := iter.Value()
@@ -43,38 +62,6 @@ func (t *Table) Iter() <-chan Row {
 		close(channel)
 	}()
 	return channel
-}
-
-type lazyRowIter struct {
-	cols       []*ColumnName
-	index      int
-	seriesRead []iterator
-}
-
-func newLzyIter(t *Table) iterator {
-	i := &lazyRowIter{index: -1}
-	for _, ser := range t.series {
-		i.cols = append(i.cols, &ser.col)
-		i.seriesRead = append(i.seriesRead, ser.read(ser))
-	}
-	return i
-}
-
-func (i *lazyRowIter) Next() bool {
-	for _, sRead := range i.seriesRead {
-		if !sRead.Next() {
-			return false
-		}
-	}
-	i.index++
-	return true
-}
-func (i *lazyRowIter) Value() interface{} {
-	r := Row{Index: Index(i.index)}
-	for c, sRead := range i.seriesRead {
-		r.Values = append(r.Values, Observation{col: i.cols[c], value: sRead.Value()})
-	}
-	return r
 }
 
 // ToRows materializes data: may be very expensive
@@ -106,8 +93,22 @@ func (t *Table) Sort(asc ...bool) *Table {
 	return nil
 }
 
-// Project takes the named columns
+// Project reorders and/or takes a subset of columns
 func (t *Table) Project(columns []ColumnName) *Table {
+	s := make([]*Series, len(columns))
+	byName := t.seriesMap()
+	for i, n := range columns {
+		if ser, found := byName[n]; !found {
+			panic(errors.Errorf("cannot project %v, no such column '%s'", t.Schema(), n))
+		} else {
+			s[i] = ser
+		}
+	}
+	return NewTable(s)
+}
+
+// ProjectAllBut discards the named columns
+func (t *Table) ProjectAllBut(columns []ColumnName) *Table {
 	return nil
 }
 

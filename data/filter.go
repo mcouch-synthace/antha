@@ -1,73 +1,179 @@
 package data
 
 import (
-//	"fmt"
+	"reflect"
+
+	"github.com/pkg/errors"
 )
 
-// Filter specs
+/*
+ * filter interfaces
+ */
 
-// Eq matches Rows that have the given column equal to this value
-type Eq struct {
+// Matcher returns true for column values that match
+type Matcher func(...interface{}) bool
+
+// FilterSpec implements a filter operation
+type FilterSpec interface {
+	Columns() []ColumnName
+	// MatchFor should return error if the filter is invalid eg. requires a different datatype
+	// the required columnnames are guaranteed to be present in this schema
+	MatchFor(Schema) (Matcher, error)
+	// TODO bridge interfaces for more efficient backend filter ops
+}
+
+/*
+ * concrete filters
+ */
+type eq struct {
 	Col ColumnName
 	Val interface{}
 }
 
-// TODO Eq specialization methods to more efficiently filter known scalar types
+// Eq matches Rows that have the given column equal to val
+func Eq(col ColumnName, val interface{}) FilterSpec {
+	return eq{Col: col, Val: val}
+}
 
-func (w Eq) Columns() []ColumnName {
+// TODO Eq specialization methods to more efficiently filter known scalar types (?)
+
+func (w eq) Columns() []ColumnName {
 	return []ColumnName{w.Col}
 }
 
-func (w Eq) MatchValues(v ...interface{}) bool {
-	// TODO if possible, cast to the matched type
-	// if not possible, we should panic or set an error field
-	return v[0] == w.Val
+func (w eq) MatchFor(schema Schema) (Matcher, error) {
+	c, _ := schema.Col(w.Col)
+	// if possible, cast/convert to the matched type
+	val := reflect.ValueOf(w.Val)
+	if !val.Type().ConvertibleTo(c.Type) {
+		// TODO error here
+	}
+	valConverted := val.Convert(c.Type).Interface()
+	matchValues := func(v ...interface{}) bool {
+		return v[0] == valConverted
+	}
+
+	return matchValues, nil
 }
 
-type FilterSpec interface {
-	Columns() []ColumnName
-	MatchValues(...interface{}) bool
-	// TODO bridge interfaces for more efficient backend filter ops
+/*
+ * generic filter guts
+ */
+type filterState struct {
+	matchColIndexes map[int]bool
+	matcher         Matcher
+	source          *tableIterator
+	iterNext        bool
+	curr            []interface{}
+	index           Index
+}
+
+// the filtered series share an underlying iterator cache
+func newFilterState(matcher Matcher, filterSpec FilterSpec, underlying []*Series) *filterState {
+	s := &filterState{
+		index:           -1,
+		matcher:         matcher,
+		matchColIndexes: map[int]bool{},
+		source:          newTableIterator(underlying),
+	}
+	schema := newSchema(underlying)
+	for _, n := range filterSpec.Columns() {
+		s.matchColIndexes[schema.byName[n]] = true
+	}
+
+	return s
+}
+
+func (st *filterState) advance() {
+	for st.source.Next() {
+		st.index++
+		if st.isMatch() {
+			st.iterNext = true
+			return
+		}
+	}
+	st.iterNext = false
+}
+func (st *filterState) isMatch() bool {
+	// TODO save some garbage here by indexing columns by position and only
+	// getting series values needed to satisfy the filter (ie avoid copying to
+	// a Row!)
+	row := st.source.Value().(Row)
+	colVals := []interface{}{}
+	matchVals := []interface{}{}
+	for i, n := range st.source.cols {
+		o, _ := row.Observation(*n)
+		colVals = append(colVals, o.value)
+		if st.matchColIndexes[i] {
+			matchVals = append(matchVals, o.value)
+		}
+	}
+	st.curr = colVals
+	return st.matcher(matchVals...)
 }
 
 type filterIter struct {
-	filterSpec FilterSpec
-	raw        iterator
-	state      Row
-	index      int
+	wrapped     iterator // series iterator
+	commonState *filterState
+	pos         Index
+	colIndex    int
 }
 
-func (i *filterIter) ok() bool {
-	rowRaw := i.raw.Value()
-	// TODO we could save some garbage here by indexing columns by position
-	row := rowRaw.(Row)
-	i.state = row
-	colVals := []interface{}{}
-	for _, cName := range i.filterSpec.Columns() {
-		o, _ := row.Observation(cName)
-		colVals = append(colVals, o.value)
+// Next must not return until the source has been advanced to
+// a true filter state, or has been exhausted.
+func (iter *filterIter) Next() bool {
+	// see if we need to discard the current shared state
+	retain := iter.pos != iter.commonState.index
+	if !retain {
+		iter.commonState.advance()
+		iter.pos = iter.commonState.index
 	}
-	return i.filterSpec.MatchValues(colVals...)
+	return iter.commonState.iterNext
 }
-func (i *filterIter) Next() bool {
-	for i.raw.Next() {
-		if i.ok() {
-			i.index++
-			return true
-		}
-	}
-	return false
-}
-func (i *filterIter) Value() interface{} {
-	row := i.state
-	row.Index = Index(i.index)
-	return row
+
+func (iter *filterIter) Value() interface{} {
+	colVals := iter.commonState.curr
+	return colVals[iter.colIndex]
 }
 
 func lazyFilterTable(filterSpec FilterSpec, table *Table) *Table {
-	newTable := &Table{series: table.series}
-	newTable.read = func(t *Table) iterator {
-		return &filterIter{index: -1, filterSpec: filterSpec, raw: table.read(t)}
+	// eager schema check
+	filterSubject := table.Project(filterSpec.Columns())
+	matcher, err := filterSpec.MatchFor(filterSubject.Schema())
+	if err != nil {
+		panic(errors.Wrapf(err, "can't filter %+v with %+v", table, filterSpec))
 	}
-	return newTable
+	// compose the filter into all the series
+	wrappers := make([]*Series, len(table.series))
+	wrap := func(colIndex int, wrappedSeries *Series) func(cache seriesIterCache) iterator {
+		return func(cache seriesIterCache) iterator {
+			// The first wrapper needs to construct the common state for the parent iterator,
+			// noting we will be called in random order.
+			var commonState *filterState
+			for _, w := range wrappers {
+				if iterator, found := cache[w]; found {
+					commonState = iterator.(*filterIter).commonState
+				}
+			}
+			if commonState == nil {
+				commonState = newFilterState(matcher, filterSpec, table.series)
+			}
+
+			return &filterIter{
+				pos:         commonState.index,
+				colIndex:    colIndex,
+				commonState: commonState,
+				wrapped:     commonState.source.iteratorCache.Ensure(wrappedSeries),
+			}
+		}
+	}
+	for i, wrappedSeries := range table.series {
+		wrappers[i] = &Series{
+			typ:  wrappedSeries.typ,
+			col:  wrappedSeries.col,
+			read: wrap(i, wrappedSeries),
+		}
+	}
+	t := NewTable(wrappers)
+	return t
 }

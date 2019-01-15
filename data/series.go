@@ -68,12 +68,12 @@ type Series struct {
 	col ColumnName
 	// typically a scalar type
 	typ  reflect.Type
-	read func(*Series) iterator
+	read func(seriesIterCache) iterator
 }
 
-func (s *Series) ColumnName() ColumnName {
-	return s.col
-}
+// func (s *Series) ColumnName() ColumnName {
+// 	return s.col
+// }
 
 // func (s *Series) Slice(start, stop Index) []Observation {
 // 	return nil

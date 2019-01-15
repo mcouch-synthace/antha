@@ -5,25 +5,32 @@ import (
 )
 
 type extendSeries struct {
-	f         func(r Row) interface{}
-	tableIter iterator
+	f      func(r Row) interface{}
+	source *readRow
 }
 
 func (i *extendSeries) Next() bool {
-	return i.tableIter.Next()
+	return true //only exhausted when underlying iterators are
 }
 func (i *extendSeries) Value() interface{} {
-	row := i.tableIter.Value().(Row)
-	return i.f(row)
+	row := i.source.Value().(Row)
+	v := i.f(row)
+	return v
 }
 
 func extendTable(f func(r Row) interface{}, newCol ColumnName, newType reflect.Type, table *Table) *Table {
-	series := table.series
-	return NewTable(append(series, &Series{
+	series := append(table.series, &Series{
 		col: newCol,
 		typ: newType,
-		read: func(*Series) iterator {
-			return &extendSeries{f: f, tableIter: table.read(table)}
+		read: func(cache seriesIterCache) iterator {
+			// virtual table will not be used to advance
+			source := &readRow{iteratorCache: cache}
+			// go get the series iterators we need from the cache
+			source.fill(table.series)
+
+			return &extendSeries{f: f, source: source}
 		}},
-	))
+	)
+	newT := NewTable(series)
+	return newT
 }
