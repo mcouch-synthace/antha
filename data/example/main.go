@@ -29,10 +29,10 @@ func ExampleSliceSeries() {
 		fmt.Println("int measure value:", m.MustInt())
 	}
 	// produce a new Table by filtering
-	smallerTab := tab.Filter(data.Eq{Col: "label", Val: "aa"})
+	smallerTab := tab.Filter(data.Eq("label", "aa"))
 	fmt.Println("after filter\n", smallerTab.ToRows())
 	// note the exact type matching required here
-	fmt.Println("after filter 2\n", smallerTab.Filter(data.Eq{"measure", int64(0)}).ToRows())
+	fmt.Println("after filter 2\n", smallerTab.Filter(data.Eq("measure", int64(0))).ToRows())
 
 	// add a column
 	extended := tab.ExtendBy(func(r data.Row) interface{} {
