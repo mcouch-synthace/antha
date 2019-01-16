@@ -406,15 +406,39 @@ func (this *Liquidhandler) shrinkVolumes(rq *LHRequest) error {
 		}
 	}
 
+	getFinalWell := func(initialWell *wtype.LHWell) (*wtype.LHWell, error) {
+		// assumption: plate locations don't change
+		plateID := wtype.IDOf(initialWell.GetParent())
+		if platePos, ok := this.Properties.PlateIDLookup[plateID]; !ok {
+			return nil, errors.Errorf("couldn't find position of plate %s", plateID)
+		} else if finalPlate, ok := this.FinalProperties.Plates[platePos]; !ok {
+			return nil, errors.Errorf("couldn't find final plate for initial plate %s at %s", plateID, platePos)
+		} else if finalWell, ok := finalPlate.WellAt(initialWell.Crds); !ok {
+			return nil, errors.Errorf("couldn't find well %s in final plate at %s", initialWell.Crds.FormatA1(), platePos)
+		} else {
+			return finalWell, nil
+		}
+
+	}
+
 	// second, set volumes for each autoallocated input as calculated
 	for initialWell, volUsed := range vols {
 		if initialWell.IsAutoallocated() {
-			volUsed.IncrBy(initialWell.ResidualVolume()) // nolint - volumes are always compatible
-			volUsed.DecrBy(rq.CarryVolume)               // nolint - final carry volume from well comes from residual
+			// one carry volume can be taken from the residual volume
+			remainingVolume := wunit.SubtractVolumes(initialWell.ResidualVolume(), rq.CarryVolume)
 
 			initialContents := initialWell.Contents().Dup()
-			initialContents.SetVolume(volUsed)
+			initialContents.SetVolume(wunit.AddVolumes(volUsed, remainingVolume))
 			if err := initialWell.SetContents(initialContents); err != nil {
+				return err
+			}
+
+			// since we aren't yet re-generating the instructions, we need to update the final volume as well
+			finalContents := initialContents.Dup()
+			finalContents.SetVolume(remainingVolume)
+			if finalWell, err := getFinalWell(initialWell); err != nil {
+				return err
+			} else if err := finalWell.SetContents(finalContents); err != nil {
 				return err
 			}
 		}
@@ -426,9 +450,16 @@ func (this *Liquidhandler) shrinkVolumes(rq *LHRequest) error {
 		if !usedPlates[plate] {
 			toRemove = append(toRemove, plate.ID)
 		} else {
-			for _, well := range plate.Wellcoords {
-				if _, used := vols[well]; !used && well.IsAutoallocated() {
-					well.Clear()
+			for _, initialWell := range plate.Wellcoords {
+				if _, used := vols[initialWell]; !used && initialWell.IsAutoallocated() {
+					initialWell.Clear()
+
+					// as in step 2, we need to update the final well volume as well
+					if finalWell, err := getFinalWell(initialWell); err != nil {
+						return err
+					} else {
+						finalWell.Clear()
+					}
 				}
 			}
 		}
@@ -817,14 +848,16 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 
 	// make the root layer of the instruction tree
 	// this consists of converting LHInstructions into transfers and matching up sources
-	if root, err := liquidhandling.MakeTreeRoot(ctx, request.InstructionChain, request.Policies(), this.Properties.DupKeepIDs()); err != nil {
+	finalProps := this.Properties.DupKeepIDs()
+	if root, err := liquidhandling.MakeTreeRoot(ctx, request.InstructionChain, request.Policies(), finalProps); err != nil {
 		return err
 	} else {
 		request.InstructionTree = root
+		//this.FinalProperties = finalProps
 	}
 
 	// build the rest of the instruction tree, and get the low level instructions
-	if terminalInstructions, finalProps, err := request.InstructionTree.Generate(ctx, request.Policies(), this.Properties); err != nil {
+	if terminalInstructions, finalProps, err := request.InstructionTree.Generate(ctx, request.Policies(), finalProps); err != nil {
 		return err
 	} else {
 		request.Instructions = terminalInstructions
