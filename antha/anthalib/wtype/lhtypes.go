@@ -23,7 +23,6 @@
 package wtype
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 
@@ -143,32 +142,6 @@ func (lhcp LHChannelParameter) GetConstraint(n int) LHMultiChannelConstraint {
 	return LHMultiChannelConstraint{x, y, max}
 }
 
-func (lhcp LHChannelParameter) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		ID          string
-		Name        string
-		Minvol      wunit.Volume
-		Maxvol      wunit.Volume
-		Minspd      wunit.FlowRate
-		Maxspd      wunit.FlowRate
-		Multi       int
-		Independent bool
-		Orientation ChannelOrientation
-		Head        int
-	}{
-		lhcp.ID,
-		lhcp.Name,
-		lhcp.Minvol,
-		lhcp.Maxvol,
-		lhcp.Minspd,
-		lhcp.Maxspd,
-		lhcp.Multi,
-		lhcp.Independent,
-		lhcp.Orientation,
-		lhcp.Head,
-	})
-}
-
 func (lhcp *LHChannelParameter) Dup() *LHChannelParameter {
 	return lhcp.dup(false)
 }
@@ -240,47 +213,18 @@ func (lhd *LHDevice) Dup() *LHDevice {
 	return d
 }
 
-// describes a position on the liquid handling deck and its current state
+// describes a position on the liquid handling deck
 type LHPosition struct {
-	ID    string
-	Name  string
-	Num   int
-	Extra []LHDevice
-	Maxh  float64
+	Name     string      // human readable name of the position chosen by device driver
+	Location Coordinates // absolute position of read left corner of the position
 }
 
-func NewLHPosition(position_number int, name string, maxh float64) *LHPosition {
-	var lhp LHPosition
-	lhp.ID = GetUUID()
-	lhp.Name = name
-	lhp.Num = position_number
-	lhp.Extra = make([]LHDevice, 0, 2)
-	lhp.Maxh = maxh
-	return &lhp
-}
-
-// @implement Location
-// -- this is clearly somewhere that something can be
-// need to implement the liquid handler as a location as well
-
-func (lhp *LHPosition) Location_ID() string {
-	return lhp.ID
-}
-
-func (lhp *LHPosition) Location_Name() string {
-	return lhp.Name
-}
-
-func (lhp *LHPosition) Container() Location {
-	return lhp
-}
-
-func (lhp *LHPosition) Positions() []Location {
-	return nil
-}
-
-func (lhp *LHPosition) Shape() *Shape {
-	return NewShape("box", "mm", 0.08548, 0.12776, 0.0)
+// NewLHPosition constructs a new position on a liquidhandling deck
+func NewLHPosition(name string, location Coordinates) *LHPosition {
+	return &LHPosition{
+		Name:     name,
+		Location: location,
+	}
 }
 
 // structure describing a solution: a combination of liquid components

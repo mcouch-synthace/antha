@@ -248,8 +248,8 @@ func (a *Mixer) Compile(ctx context.Context, nodes []ast.Node) ([]target.Inst, e
 
 func (a *Mixer) saveFile(name string) ([]byte, error) {
 	data, status := a.driver.GetOutputFile()
-	if !status.OK {
-		return nil, fmt.Errorf("%d: %s", status.Errorcode, status.Msg)
+	if err := status.GetError(); err != nil {
+		return nil, err
 	} else if len(data) == 0 {
 		return nil, nil
 	}
@@ -465,34 +465,20 @@ func (a *Mixer) makeMix(ctx context.Context, mixes []*wtype.LHInstruction) (*tar
 
 // New creates a new Mixer
 func New(opt Opt, d driver.LiquidhandlingDriver) (*Mixer, error) {
-	p, status := d.GetCapabilities()
-	if !status.OK {
-		return nil, fmt.Errorf("cannot get capabilities: %s", status.Msg)
+	userPreferences := &driver.LayoutOpt{
+		Tipboxes:  driver.Addresses(opt.DriverSpecificTipPreferences),
+		Inputs:    driver.Addresses(opt.DriverSpecificInputPreferences),
+		Outputs:   driver.Addresses(opt.DriverSpecificOutputPreferences),
+		Tipwastes: driver.Addresses(opt.DriverSpecificTipWastePreferences),
+		Washes:    driver.Addresses(opt.DriverSpecificWashPreferences),
 	}
 
-	update := func(addr *[]string, v []string) {
-		if len(v) != 0 {
-			*addr = v
-		}
+	if p, status := d.GetCapabilities(); !status.Ok() {
+		return nil, status.GetError()
+	} else if err := p.ApplyUserPreferences(userPreferences); err != nil {
+		return nil, err
+	} else {
+		p.Driver = d
+		return &Mixer{driver: d, properties: &p, opt: opt}, nil
 	}
-
-	if len(opt.DriverSpecificInputPreferences) != 0 && p.CheckPreferenceCompatibility(opt.DriverSpecificInputPreferences) {
-		update(&p.Input_preferences, opt.DriverSpecificInputPreferences)
-	}
-	if len(opt.DriverSpecificOutputPreferences) != 0 && p.CheckPreferenceCompatibility(opt.DriverSpecificOutputPreferences) {
-		update(&p.Output_preferences, opt.DriverSpecificOutputPreferences)
-	}
-
-	if len(opt.DriverSpecificTipPreferences) != 0 && p.CheckTipPrefCompatibility(opt.DriverSpecificTipPreferences) {
-		update(&p.Tip_preferences, opt.DriverSpecificTipPreferences)
-	}
-
-	if len(opt.DriverSpecificTipWastePreferences) != 0 && p.CheckPreferenceCompatibility(opt.DriverSpecificTipWastePreferences) {
-		update(&p.Tipwaste_preferences, opt.DriverSpecificTipWastePreferences)
-	}
-	if len(opt.DriverSpecificWashPreferences) != 0 && p.CheckPreferenceCompatibility(opt.DriverSpecificWashPreferences) {
-		update(&p.Wash_preferences, opt.DriverSpecificWashPreferences)
-	}
-	p.Driver = d
-	return &Mixer{driver: d, properties: &p, opt: opt}, nil
 }
