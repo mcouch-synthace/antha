@@ -167,9 +167,9 @@ func (a *runOpt) Run() error {
 	}
 
 	rout, err := execute.Run(ctx, execute.Opt{
-		Target:   t.Target,
-		Workflow: &bundle.Desc,
-		Params:   &bundle.RawParams,
+		Target:                     t.Target,
+		Workflow:                   &bundle.Desc,
+		Params:                     &bundle.RawParams,
 		TransitionalReadLocalFiles: true,
 	})
 	if err != nil {
