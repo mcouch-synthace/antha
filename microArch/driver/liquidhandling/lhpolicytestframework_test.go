@@ -72,7 +72,7 @@ type InstructionAssertion struct {
 	Values      map[InstructionParameter]interface{}
 }
 
-func (self *InstructionAssertion) Assert(t *testing.T, ris []RobotInstruction) {
+func (self *InstructionAssertion) Assert(t *testing.T, ris []TerminalRobotInstruction) {
 	if self.Instruction < 0 || self.Instruction >= len(ris) {
 		t.Errorf("test error: assertion on instruction %d, but only %d instructions", self.Instruction, len(ris))
 		return
@@ -97,7 +97,7 @@ type PolicyTest struct {
 	Error                string
 }
 
-func stringInstructions(inss []RobotInstruction) string {
+func stringInstructions(inss []TerminalRobotInstruction) string {
 	s := make([]string, len(inss))
 	for i, ins := range inss {
 		s[i] = ins.Type().Name
@@ -134,7 +134,7 @@ func (self *PolicyTest) run(t *testing.T) {
 		rule.AddToPolicy(policySet)
 	}
 
-	if ris, err := NewITreeNode(self.Instruction).Generate(ctx, policySet, self.Robot); err != nil {
+	if ris, _, err := NewITreeNode(self.Instruction).Generate(ctx, policySet, self.Robot); err != nil {
 		if !self.expected(err) {
 			t.Errorf("errors don't match:\ne: \"%s\",\ng: \"%s\"", self.Error, err.Error())
 		}

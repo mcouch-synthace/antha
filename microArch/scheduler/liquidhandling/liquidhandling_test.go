@@ -800,6 +800,7 @@ func TestExecutionPlanning(t *testing.T) {
 			Assertions: Assertions{
 				NumberOfAssertion(liquidhandling.ASP, 3*8), //no multichanneling
 				NumberOfAssertion(liquidhandling.DSP, 3*8), //no multichanneling
+				FinalOutputVolumesAssertion(0.001, map[string]float64{"A1": 17.0, "B1": 17.0, "C1": 17.0, "D1": 17.0, "E1": 17.0, "F1": 17.0, "G1": 17.0, "H1": 17.0}),
 			},
 		},
 		{
