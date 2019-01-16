@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/pkg/errors"
@@ -46,7 +47,7 @@ func (w eq) MatchFor(schema Schema) (Matcher, error) {
 	// if possible, cast/convert to the matched type
 	val := reflect.ValueOf(w.Val)
 	if !val.Type().ConvertibleTo(c.Type) {
-		// TODO error here
+		return nil, fmt.Errorf("Incompatible types: %+v and %+v", val.Type(), c.Type)
 	}
 	valConverted := val.Convert(c.Type).Interface()
 	matchValues := func(v ...interface{}) bool {
