@@ -25,6 +25,8 @@ func (rr *readRow) Value() interface{} {
 
 // Sharing state across dependencies that need it
 // TODO extract interfaces, potentially
+// TODO if this were an ordered map, then it would be possible to make the assumption that dependencies
+// have been advanced in extension columns, allowing us to cache values
 type seriesIterCache map[*Series]iterator
 
 func (c seriesIterCache) Advance() bool {

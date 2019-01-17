@@ -251,11 +251,11 @@ func (t *Table) Join(other Joinable) *Table {
 	return nil
 }
 
-// ExtendBy adds a column by applying f.
-// TODO the implicit dependency on the table schema for t (via Row) is a bit ugly here
-// TODO optional, statically typed functions
-func (t *Table) ExtendBy(f func(r Row) interface{}, newCol ColumnName, newType reflect.Type) *Table {
-	return extendTable(f, newCol, newType, t)
+// Extend adds a column by applying a function
+func (t *Table) Extend(newCol ColumnName) *Extension {
+	series := make([]*Series, len(t.series))
+	copy(series, t.series)
+	return &Extension{newCol: newCol, series: series}
 }
 
 // Copy gives a new table, optionally with duplicate Series data

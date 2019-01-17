@@ -56,18 +56,34 @@ func TestSlice(t *testing.T) {
 	}), slice910, "slice910")
 }
 
-func TestExtendBy(t *testing.T) {
+func TestExtend(t *testing.T) {
 	a := NewTable([]*Series{
 		Must().NewSliceSeries("a", []int64{1, 2, 3}),
 	})
-	extended := a.ExtendBy(func(r Row) interface{} {
+	extended := a.Extend("e").By(func(r Row) interface{} {
 		a, _ := r.Observation("a")
 		return float64(a.MustInt64()) / 2.0
 	},
-		"e", reflect.TypeOf(float64(0)))
+		reflect.TypeOf(float64(0)))
 	assertEqual(t, NewTable([]*Series{
 		Must().NewSliceSeries("e", []float64{0.5, 1.0, 1.5}),
 	}), extended.Project("e"), "extend")
+
+	floats := NewTable([]*Series{
+		Must().NewSliceSeries("floats", []float64{1, 2, 3}),
+	})
+	extendedStatic := floats.
+		Extend("e_static").
+		On("floats").
+		Float64(func(v ...float64) float64 {
+			return v[0] * 2.0
+		})
+	// extended2 := extendedStatic.Extend("another").On("floats", "e_static").Float64(func(v ...float64) float64 { return v[0] + v[1] })
+
+	// fmt.Println(extended2.ToRows())
+	assertEqual(t, NewTable([]*Series{
+		Must().NewSliceSeries("e_static", []float64{2, 4, 6}),
+	}), extendedStatic.Project("e_static"), "extend static")
 }
 
 func TestFilterEq(t *testing.T) {
@@ -106,5 +122,6 @@ func TestSize(t *testing.T) {
 	if slice2.Size() != 2 {
 		t.Errorf("slice2.Size()? %d", slice2.Size())
 	}
-
+	// an extension is of exactly the size of its underlying
+	// TODO
 }

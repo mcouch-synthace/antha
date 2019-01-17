@@ -72,26 +72,9 @@ func (r Row) ToStruct(structPtr interface{}) error {
 	return nil
 }
 
-func FromStructSlice(structs interface{}) (*Rows, error) {
+func SeriesFromStructs(structs interface{}) (*[]Slice, error) {
 	return nil, nil
 }
-func FromStruct(struc interface{}) (Row, error) {
-	return Row{}, nil
-}
 */
-type MustCreate struct{}
 
-func Must() MustCreate {
-	return MustCreate{}
-}
-
-func (m MustCreate) handle(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-func (m MustCreate) NewSliceSeries(col ColumnName, values interface{}) *Series {
-	ser, err := NewSliceSeries(col, values)
-	m.handle(err)
-	return ser
-}
+// TODO:make native slices implement 'iter<Type>' statically typed iterators

@@ -25,8 +25,8 @@ func ArrowSeries() *data.Table {
 	// 2) nulls are allowed
 
 	// create the arrow series from slices and validity masks
-	column1 := data.NewArrowSeriesFromSliceInt64("measure", []int64{10, 10, 30, 0, 5}, []bool{true, true, true, false, true})
-	column2 := data.NewArrowSeriesFromSliceString("label", []string{"", "aa", "xx", "aa", ""}, nil)
+	column1 := data.Must().NewArrowSeriesFromSlice("measure", []int64{10, 10, 30, 0, 5}, []bool{true, true, true, false, true})
+	column2 := data.Must().NewArrowSeriesFromSlice("label", []string{"", "aa", "xx", "aa", ""}, nil)
 
 	// create the Arrow series manually using builder
 	builder := array.NewFloat64Builder(memory.DefaultAllocator)
@@ -70,11 +70,11 @@ func Example(tab *data.Table) {
 		}
 	}
 	extended := tab.
-		ExtendBy(mult, "multiplied", reflect.TypeOf(float64(0)))
+		Extend("multiplied").By(mult, reflect.TypeOf(float64(0)))
 	fmt.Println("extended and filtered\n", extended.Filter(data.Eq("multiplied", 25)).ToRows())
 
 	projected := tab.
-		ExtendBy(mult, "multiplied", reflect.TypeOf(float64(0))).
+		Extend("multiplied").By(mult, reflect.TypeOf(float64(0))).
 		Project("label", "multiplied")
 	fmt.Println("extended and projected\n", projected.ToRows())
 

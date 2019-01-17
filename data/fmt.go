@@ -7,7 +7,6 @@ import (
 
 // Pretty printing Rows
 var _ fmt.Stringer = Rows{}
-var _ fmt.Stringer = Row{}
 
 // String formats the rows as an ascii art table
 func (r Rows) String() string {
@@ -62,8 +61,4 @@ func (r Rows) String() string {
 	return fmt.Sprintf("%d Row(s):\n%s", len(cellVals)-hdrSize, builder.String())
 }
 
-// print a single row as if it's a 1-row table
-// FIXME this is broken
-func (r Row) String() string {
-	return fmt.Sprintf("Row #%d:\n%v", r.Index, Rows{Data: []Row{r}})
-}
+// TODO: method to scan a table literal string into Rows
