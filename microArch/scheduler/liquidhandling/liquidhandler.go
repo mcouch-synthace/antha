@@ -887,6 +887,9 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 		return err
 	}
 
+	// make sure that everything in FinalProperties has had its ID updated
+	this.FinalProperties = this.FinalProperties.Dup()
+
 	// determine how to convert between IDs of objects in the initial LHProperties
 	// and those in the final LHProperties
 	if err := this.makePlateIDMap(); err != nil {

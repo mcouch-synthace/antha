@@ -123,6 +123,19 @@ func (test *PlanningTest) checkPositionConsistency(t *testing.T) {
 
 		// ok nice we have some sort of consistency
 
+		// check that object IDs are correnct and have changed
+		if id1 != wtype.IDOf(p1) {
+			t.Errorf("indonsistent ID for initial %s at position %s: PosLookup has %s, object has %s",
+				wtype.ClassOf(p1), pos, id1, wtype.IDOf(p1))
+		}
+		if id2 != wtype.IDOf(p2) {
+			t.Errorf("indonsistent ID for final %s at position %s: PosLookup has %s, object has %s",
+				wtype.ClassOf(p2), pos, id2, wtype.IDOf(p2))
+		}
+		if id1 == id2 {
+			t.Errorf("ID unchanged for %s at position %s: %s", wtype.ClassOf(p1), pos, id1)
+		}
+
 		switch p1.(type) {
 		case *wtype.Plate:
 			pp1 := p1.(*wtype.Plate)
