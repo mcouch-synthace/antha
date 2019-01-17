@@ -58,6 +58,13 @@ func GetPlateForTest() *wtype.Plate {
 	return plate
 }
 
+func GetReservoirForTest() *wtype.Plate {
+	// 250ml box reservoir
+	reservoirbox := wtype.NewShape(wtype.BoxShape, "mm", 121, 80, 40) // 39?
+	welltypereservoir := wtype.NewLHWell("ul", 200000, 40000, reservoirbox, wtype.FlatWellBottom, 121, 80, 40, 3, "mm")
+	return wtype.NewLHPlate("reservoir", "unknown", 1, 1, wtype.Coordinates{X: 127.76, Y: 85.48, Z: 40}, welltypereservoir, 1, 1, 49.5, 31.0, 0.0)
+}
+
 func PrefillPlateForTest(ctx context.Context, plate *wtype.LHPlate, liquidType string, volumes map[string]float64) *wtype.LHPlate {
 	for address, volume := range volumes {
 		cmp := GetComponentForTest(ctx, liquidType, wunit.NewVolume(volume, "ul"))
@@ -1127,6 +1134,27 @@ func TestExecutionPlanning(t *testing.T) {
 				InputLayoutAssertion(map[string]string{"A1": "water"}),                                   // should all be in the same well since no multichanneling
 				InitialInputVolumesAssertion(0.001, map[string]float64{"A1": (8.0+0.5)*8.0 + 5.0 - 0.5}), // volume plus carry per transfer plus residual
 				FinalInputVolumesAssertion(0.001, map[string]float64{"A1": 5.0 - 0.5}),
+			},
+		},
+		{
+			Name: "single channel auto allocation plate",
+			Instructions: Mixes("pcrplate_skirted_riser", TestMixComponents{
+				{
+					LiquidName:    "water",
+					VolumesByWell: ColumnWise(8, []float64{8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0}),
+					LiquidType:    wtype.LTSingleChannel,
+					Sampler:       mixer.Sample,
+				},
+			}),
+			// selecting a reservoir plate causes autoallocation to temporarily allocate two full reservoirs
+			// this test checks that the unused one is fully removed
+			InputPlates:  []*wtype.LHPlate{GetReservoirForTest()},
+			OutputPlates: []*wtype.LHPlate{GetPlateForTest()},
+			Assertions: Assertions{
+				NumberOfAssertion(liquidhandling.ASP, 8),                                                   //no multichanneling
+				InputLayoutAssertion(map[string]string{"A1": "water"}),                                     // should all be in the same well since no multichanneling
+				InitialInputVolumesAssertion(0.001, map[string]float64{"A1": (8.0+0.5)*8.0 + 40000 - 0.5}), // volume plus carry per transfer plus residual
+				FinalInputVolumesAssertion(0.001, map[string]float64{"A1": 40000 - 0.5}),
 			},
 		},
 		{

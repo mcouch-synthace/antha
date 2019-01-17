@@ -336,6 +336,8 @@ func InitialInputVolumesAssertion(tol float64, expected ...map[string]float64) A
 
 		if got, err := describePlateVolumes(request.InputPlateOrder, request.InputPlates); err != nil {
 			t.Error(errors.WithMessage(err, "initial input volumes"))
+		} else if len(got) != len(expected) {
+			t.Errorf("initial input volumes: got %d plates, expected %d", len(got), len(expected))
 		} else {
 			for i, g := range got {
 				if !volumesMatch(tol, expected[i], g) {

@@ -464,8 +464,20 @@ func (this *Liquidhandler) shrinkVolumes(rq *LHRequest) error {
 			}
 		}
 	}
-	for _, id := range toRemove {
-		this.Properties.RemovePlateWithID(id)
+	for _, removeID := range toRemove {
+		if platePos, ok := this.Properties.PlateIDLookup[removeID]; !ok {
+			return errors.Errorf("cannot remove plate that doesn't exist")
+		} else {
+			this.Properties.RemovePlateWithID(removeID)
+			this.FinalProperties.RemovePlateAtPosition(platePos)
+			ipo := make([]string, 0, len(rq.InputPlateOrder))
+			for _, id := range rq.InputPlateOrder {
+				if id != removeID {
+					ipo = append(ipo, id)
+				}
+			}
+			rq.InputPlateOrder = ipo
+		}
 	}
 
 	return nil
@@ -1212,8 +1224,12 @@ func (this *Liquidhandler) makePlateIDMap() error {
 	this.plateIDMap = make(map[string]string, len(this.Properties.Positions))
 	for position := range this.Properties.Positions {
 		if initialID, finalID := this.Properties.PosLookup[position], this.FinalProperties.PosLookup[position]; initialID == "" || finalID == "" {
-			if initialID != finalID {
-				return wtype.LHErrorf(wtype.LH_ERR_DIRE, "layout changed for position %s: initially object with ID %q, then %q", position, initialID, finalID)
+			if initialID != "" {
+				obj := this.Properties.PlateLookup[initialID]
+				return wtype.LHErrorf(wtype.LH_ERR_DIRE, "%s disappeared from %s: %s called %s", wtype.ClassOf(obj), position, wtype.TypeOf(obj), wtype.NameOf(obj))
+			} else if finalID != "" {
+				obj := this.FinalProperties.PlateLookup[finalID]
+				return wtype.LHErrorf(wtype.LH_ERR_DIRE, "%s appeared at %s: %s called %s", wtype.ClassOf(obj), position, wtype.TypeOf(obj), wtype.NameOf(obj))
 			}
 		} else if initial, ok := this.Properties.PlateLookup[initialID]; !ok {
 			return wtype.LHErrorf(wtype.LH_ERR_DIRE, "initial state inconsistent: object with id %q at %s not present in PlateLookup", initialID, position)
