@@ -23,10 +23,12 @@ type Column struct {
 	Type reflect.Type
 }
 
+// Size is number of columns
 func (s Schema) Size() int {
 	return len(s.Columns)
 }
 
+// Equal returns true if order, name and types match
 func (s Schema) Equal(other Schema) bool {
 	if s.Size() != other.Size() {
 		return false

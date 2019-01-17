@@ -1,6 +1,7 @@
 package data
 
 import (
+	"math"
 	"reflect"
 
 	"github.com/pkg/errors"
@@ -97,29 +98,19 @@ func (t *Table) ToRows() Rows {
 // rather than receiving an error
 func (t *Table) Slice(start, end Index) *Table {
 	newSeries := make([]*Series, len(t.series))
-	wrap := func(wrappedSeries *Series) func(seriesIterCache) iterator {
-		return func(cache seriesIterCache) iterator {
-			return &slicer{
-				pos:   -1,
-				start: start,
-				end:   end,
-				// TODO are we advancing series correctly here?
-				wrapped: wrappedSeries.read(cache),
-			}
-		}
-	}
-
 	for i, ser := range t.series {
+		m := newSeriesSlice(ser, start, end)
 		newSeries[i] = &Series{
 			typ:  ser.typ,
 			col:  ser.col,
-			read: wrap(ser),
+			read: m.read,
+			meta: m,
 		}
 	}
 	return NewTable(newSeries)
 }
 
-// Head is a lazy subset of the first count records (but may returnfewer)
+// Head is a lazy subset of the first count records (but may return fewer)
 func (t *Table) Head(count int) *Table {
 	return t.Slice(0, Index(count))
 }
@@ -173,10 +164,31 @@ func (t *Table) Equal(other *Table) bool {
 	// TODO since we are iterating over possibly identical series we might optimize by sharing the iterator cache
 }
 
-// Size semantics TBC with potentially unbounded series
-// TODO should only return if size is known
+// Size returns -1 if unknwon (because unbounded or lazy)
 func (t *Table) Size() int {
-	return -1
+	if len(t.series) == 0 {
+		return 0
+	}
+	max := math.MaxInt64
+	exact := math.MaxInt64
+	for _, ser := range t.series {
+		if b, ok := ser.meta.(Bounded); ok {
+			sMax := b.MaxSize()
+			if sMax == 0 {
+				return 0
+			} else if sMax < max {
+				max = sMax
+			}
+			sX := b.ExactSize()
+			if sX < exact {
+				exact = sX
+			}
+		} else {
+			// unbounded
+			exact = -1
+		}
+	}
+	return exact
 }
 
 // Cache converts a lazy table to one that is fully materialized

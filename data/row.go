@@ -19,7 +19,7 @@ type Rows struct {
 
 func (r Row) Observation(c ColumnName) (Observation, error) {
 	// TODO more efficiently access schema
-	// TODO duplicate columns...
+	// TODO access value by index
 	for _, o := range r.Values {
 		if o.ColumnName() == c {
 			return o, nil
@@ -39,7 +39,6 @@ func (o Observation) ColumnName() ColumnName {
 
 // dynamic read
 func (o Observation) IsNull() bool {
-	// TODO.
 	return o.value == nil
 }
 

@@ -77,3 +77,34 @@ func TestFilterEq(t *testing.T) {
 	filtered := a.Filter(Eq("a", 2))
 	assertEqual(t, filtered, a.Slice(1, 2), "filter")
 }
+
+func TestSize(t *testing.T) {
+	empty := NewTable([]*Series{})
+	if empty.Size() != 0 {
+		t.Errorf("should be empty. %d", empty.Size())
+	}
+	a := NewTable([]*Series{
+		Must().NewSliceSeries("a", []int64{1, 2, 3}),
+	})
+	if a.Size() != 3 {
+		t.Errorf("size? %d", a.Size())
+	}
+	// a filter is of unbounded size
+	filtered := a.Filter(Eq("a", 1))
+	if filtered.Size() != -1 {
+		t.Errorf("filtered.Size()? %d", filtered.Size())
+	}
+	// a slice is of bounded size as long as its dependencies are
+	slice1 := filtered.Head(1)
+	if slice1.Size() != -1 {
+		t.Errorf(" slice1.Size()? %d", slice1.Size())
+	}
+	if a.Head(0).Size() != 0 {
+		t.Errorf("a.Head(0).Size()? %d", a.Head(0).Size())
+	}
+	slice2 := a.Slice(1, 4)
+	if slice2.Size() != 2 {
+		t.Errorf("slice2.Size()? %d", slice2.Size())
+	}
+
+}

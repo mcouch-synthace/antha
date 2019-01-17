@@ -3,8 +3,9 @@ package data
 import ()
 
 type slicer struct {
-	wrapped         iterator
-	start, end, pos Index
+	*seriesSlice
+	wrapped iterator
+	pos     Index
 }
 
 func (iter *slicer) Next() bool {
@@ -28,3 +29,57 @@ func (iter *slicer) Next() bool {
 func (iter *slicer) Value() interface{} {
 	return iter.wrapped.Value()
 }
+
+type seriesSlice struct {
+	start, end Index
+	wrapped    *Series
+}
+
+func newSeriesSlice(ser *Series, start, end Index) *seriesSlice {
+	return &seriesSlice{start: start, end: end, wrapped: ser}
+}
+
+func (ss *seriesSlice) length() int {
+	return int(ss.end - ss.start)
+}
+func (ss *seriesSlice) read(cache seriesIterCache) iterator {
+	return &slicer{
+		seriesSlice: ss,
+		pos:         -1,
+		// TODO are we advancing series correctly here?
+		wrapped: ss.wrapped.read(cache),
+	}
+}
+
+func (ss *seriesSlice) ExactSize() int {
+	length := ss.length()
+
+	if length == 0 {
+		return 0
+	}
+	if b, ok := ss.wrapped.meta.(Bounded); ok {
+		w := b.ExactSize()
+		if w == -1 {
+			return -1
+		}
+		wrappedLen := w - int(ss.start)
+		if wrappedLen < length {
+			return wrappedLen
+		}
+		return length
+	}
+	return -1
+}
+
+func (ss *seriesSlice) MaxSize() int {
+	length := ss.length()
+	if b, ok := ss.wrapped.meta.(Bounded); ok {
+		w := b.MaxSize() - int(ss.start)
+		if w < length {
+			return w
+		}
+	}
+	return length
+}
+
+var _ Bounded = (*seriesSlice)(nil)
