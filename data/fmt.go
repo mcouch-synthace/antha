@@ -6,41 +6,39 @@ import (
 )
 
 // Pretty printing Rows
-var _ fmt.Stringer = (Rows)(nil)
+var _ fmt.Stringer = Rows{}
 var _ fmt.Stringer = Row{}
 
-// TODO pretty print might be better on Table, since this fn can't print header
-// for empty slice
+// String formats the rows as an ascii art table
 func (r Rows) String() string {
-	if len(r) == 0 {
-		return "(no Rows)"
-	}
-	// note: lots of garbage
 	const sep = "|"
 	const line = "-"
-	// row-major array
-	cellVals := make([][]interface{}, len(r)+1)
-	var colMaxes []int
+	const hdrSize = 2
+	// row-major array with offset for header rows
+	cellVals := make([][]interface{}, len(r.Data)+hdrSize)
+	colMaxes := make([]int, len(r.Schema.Columns)+1)
 
-	add := func(i, c int, value interface{}) {
-		// TODO the format could be reflected from the schema
+	add := func(rownumWithOffset, colnumWithOffset int, value interface{}) {
+		// TODO an appropriate format could be determined from the schema
 		str := fmt.Sprintf("%+v", value)
-		cellVals[i] = append(cellVals[i], str)
-		if len(str) > colMaxes[c] {
-			colMaxes[c] = len(str)
+		cellVals[rownumWithOffset] = append(cellVals[rownumWithOffset], str)
+		if len(str) > colMaxes[colnumWithOffset] {
+			colMaxes[colnumWithOffset] = len(str)
 		}
 	}
-	// TODO also print the row indices
-	for idx, rr := range r {
-		if idx == 0 {
-			colMaxes = make([]int, len(rr.Values))
-			// headers
-			for c, o := range rr.Values {
-				add(0, c, o.ColumnName())
-			}
-		}
+	// headers
+	add(0, 0, "")
+	add(1, 0, "")
+
+	for c, col := range r.Schema.Columns {
+		add(0, c+1, col.Name)
+		add(1, c+1, col.Type)
+	}
+
+	for rownum, rr := range r.Data {
+		add(rownum+hdrSize, 0, rr.Index)
 		for c, o := range rr.Values {
-			add(idx+1, c, o.value)
+			add(rownum+hdrSize, c+1, o.value)
 		}
 	}
 	fmtStrBuilder := strings.Builder{}
@@ -55,15 +53,17 @@ func (r Rows) String() string {
 	for idx, cells := range cellVals {
 		rowStr := fmt.Sprintf(fmtStr, cells...)
 		builder.WriteString(rowStr)
-		if idx == 0 {
-			builder.WriteString(strings.Repeat(line, len(rowStr)))
+		if idx == 1 {
+			// divider
+			builder.WriteString(strings.Repeat(line, len(rowStr)-1))
 			builder.WriteString("\n")
 		}
 	}
-	return fmt.Sprintf("%d Row(s):\n%s", len(cellVals)-1, builder.String())
+	return fmt.Sprintf("%d Row(s):\n%s", len(cellVals)-hdrSize, builder.String())
 }
 
 // print a single row as if it's a 1-row table
+// FIXME this is broken
 func (r Row) String() string {
-	return fmt.Sprintf("Row #%d:\n%v", r.Index, Rows{r})
+	return fmt.Sprintf("Row #%d:\n%v", r.Index, Rows{Data: []Row{r}})
 }

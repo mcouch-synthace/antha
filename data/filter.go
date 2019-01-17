@@ -79,7 +79,9 @@ func newFilterState(matcher Matcher, filterSpec FilterSpec, underlying []*Series
 	}
 	schema := newSchema(underlying)
 	for _, n := range filterSpec.Columns() {
-		s.matchColIndexes[schema.byName[n]] = true
+		for _, c := range schema.byName[n] {
+			s.matchColIndexes[c] = true
+		}
 	}
 
 	return s
@@ -139,7 +141,7 @@ func (iter *filterIter) Value() interface{} {
 
 func lazyFilterTable(filterSpec FilterSpec, table *Table) *Table {
 	// eager schema check
-	filterSubject := table.Project(filterSpec.Columns())
+	filterSubject := table.Project(filterSpec.Columns()...)
 	matcher, err := filterSpec.MatchFor(filterSubject.Schema())
 	if err != nil {
 		panic(errors.Wrapf(err, "can't filter %+v with %+v", table, filterSpec))

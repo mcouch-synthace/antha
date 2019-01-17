@@ -54,21 +54,22 @@ func FromRows(Rows) (*Table, error) {
 	return nil, nil
 }
 
+/*
 // ToStructSlice reflectively copies to the given struct fields
-func (r Rows) ToStructSlice(structsPtr interface{}) error {
+func (r *Rows) ToStructSlice(structsPtr interface{}) error {
 	return nil
 }
 func (r Row) ToStruct(structPtr interface{}) error {
 	return nil
 }
 
-func FromStructSlice(structs interface{}) (Rows, error) {
+func FromStructSlice(structs interface{}) (*Rows, error) {
 	return nil, nil
 }
 func FromStruct(struc interface{}) (Row, error) {
 	return Row{}, nil
 }
-
+*/
 type MustCreate struct{}
 
 func Must() MustCreate {

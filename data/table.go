@@ -1,8 +1,9 @@
 package data
 
 import (
-	"github.com/pkg/errors"
 	"reflect"
+
+	"github.com/pkg/errors"
 )
 
 // Lazy data sets
@@ -33,12 +34,14 @@ func (t *Table) Series() []*Series {
 	return nil
 }
 
-func (t *Table) seriesMap() map[ColumnName]*Series {
+func (t *Table) seriesMap() map[ColumnName][]*Series {
 
 	schema := t.Schema()
-	byName := map[ColumnName]*Series{}
-	for n, i := range schema.byName {
-		byName[n] = t.series[i]
+	byName := map[ColumnName][]*Series{}
+	for n, is := range schema.byName {
+		for _, i := range is {
+			byName[n] = append(byName[n], t.series[i])
+		}
 	}
 	return byName
 }
@@ -48,34 +51,77 @@ func (t *Table) seriesMap() map[ColumnName]*Series {
 // 	return nil
 // }
 
-// Iter iterates over the entire table, no buffer (so blocking)
-// TODO leaking a goroutine here?  need a control channel.
-func (t *Table) Iter() <-chan Row {
+// IterAll iterates over the entire table, no buffer.
+// Use when ranging over all rows is required.
+func (t *Table) IterAll() <-chan Row {
+	rows, _ := t.Iter()
+	return rows
+}
+
+// Iter iterates over the table, no buffer.
+// call done() to release resources after a partial read.
+func (t *Table) Iter() (rows <-chan Row, done func()) {
 	channel := make(chan Row)
 	iter := t.read(t.series)
+	control := make(chan struct{}, 1)
+	done = func() {
+		control <- struct{}{}
+	}
 	go func() {
+		defer close(channel)
 		for iter.Next() {
 			rowRaw := iter.Value()
 			row := rowRaw.(Row)
-			channel <- row
+			select {
+			case <-control:
+				return
+			case channel <- row:
+				// do nothing
+			}
 		}
-		close(channel)
 	}()
-	return channel
+	return channel, done
 }
 
 // ToRows materializes data: may be very expensive
 func (t *Table) ToRows() Rows {
-	rr := make(Rows, 0)
-	for r := range t.Iter() {
-		rr = append(rr, r)
+	rr := Rows{Schema: t.Schema()}
+	for r := range t.IterAll() {
+		rr.Data = append(rr.Data, r)
 	}
 	return rr
 }
 
-// Slice TODO semantics,  This should probably materialize lazy tables.
-func (t *Table) Slice(start, endExclusive int) *Table {
-	return nil
+// Slice is a lazy subset of records between the start index and the end (exclusive)
+// unlike go slices, if the end index is out of range then fewer records are returned
+// rather than receiving an error
+func (t *Table) Slice(start, end Index) *Table {
+	newSeries := make([]*Series, len(t.series))
+	wrap := func(wrappedSeries *Series) func(seriesIterCache) iterator {
+		return func(cache seriesIterCache) iterator {
+			return &slicer{
+				pos:   -1,
+				start: start,
+				end:   end,
+				// TODO are we advancing series correctly here?
+				wrapped: wrappedSeries.read(cache),
+			}
+		}
+	}
+
+	for i, ser := range t.series {
+		newSeries[i] = &Series{
+			typ:  ser.typ,
+			col:  ser.col,
+			read: wrap(ser),
+		}
+	}
+	return NewTable(newSeries)
+}
+
+// Head is a lazy subset of the first count records (but may returnfewer)
+func (t *Table) Head(count int) *Table {
+	return t.Slice(0, Index(count))
 }
 
 // Key returns the key columns
@@ -89,35 +135,105 @@ func (t *Table) WithKey(key Key) *Table {
 }
 
 // Sort produces a sorted Table using the Key.
+// TODO inplace optimization?
 func (t *Table) Sort(asc ...bool) *Table {
 	return nil
 }
 
-// Project reorders and/or takes a subset of columns
-func (t *Table) Project(columns []ColumnName) *Table {
+// Equal is true if the other table has the same schema (in the same order)
+// and exactly equal series values
+func (t *Table) Equal(other *Table) bool {
+	if t == other {
+		return true
+	}
+	schema1 := t.Schema()
+	schema2 := other.Schema()
+	if !schema1.Equal(schema2) {
+		return false
+	}
+	// TODO compare tables' key, known bounded length, and sortedness
+
+	// TODO if table series are identical we can shortcut the iteration
+	iter1, done1 := t.Iter()
+	iter2, done2 := other.Iter()
+	defer done1()
+	defer done2()
+	for {
+		r1, more1 := <-iter1
+		r2, more2 := <-iter2
+		if more1 != more2 || !reflect.DeepEqual(r1.Values, r2.Values) {
+			return false
+		}
+		if !more1 {
+			break
+		}
+	}
+
+	return true
+	// TODO since we are iterating over possibly identical series we might optimize by sharing the iterator cache
+}
+
+// Size semantics TBC with potentially unbounded series
+// TODO should only return if size is known
+func (t *Table) Size() int {
+	return -1
+}
+
+// Cache converts a lazy table to one that is fully materialized
+// TODO
+func (t *Table) Cache() *Table {
+	// TODO could cached series be shared with other instances?
+	return nil
+}
+
+// DropNullColumns filters out columns with all/any row null
+// TODO
+func (t *Table) DropNullColumns(all bool) *Table {
+	return nil
+}
+
+// DropNull filters out rows with all/any col null
+// TODO
+func (t *Table) DropNull(all bool) *Table {
+	return nil
+}
+
+// Project reorders and/or takes a subset of columns.
+// On duplicate columns, only the first so named is taken.
+func (t *Table) Project(columns ...ColumnName) *Table {
 	s := make([]*Series, len(columns))
 	byName := t.seriesMap()
 	for i, n := range columns {
-		if ser, found := byName[n]; !found {
+		if sers, found := byName[n]; !found {
 			panic(errors.Errorf("cannot project %v, no such column '%s'", t.Schema(), n))
 		} else {
-			s[i] = ser
+			s[i] = sers[0] //!
 		}
 	}
 	return NewTable(s)
 }
 
-// ProjectAllBut discards the named columns
-func (t *Table) ProjectAllBut(columns []ColumnName) *Table {
-	return nil
+// ProjectAllBut discards the named columns, which may not exist in the schema
+func (t *Table) ProjectAllBut(columns ...ColumnName) *Table {
+	byName := map[ColumnName]struct{}{}
+	for _, n := range columns {
+		byName[n] = struct{}{}
+	}
+	s := []*Series{}
+	for _, ser := range t.series {
+		if _, found := byName[ser.col]; !found {
+			s = append(s, ser)
+		}
+	}
+	return NewTable(s)
 }
 
-// Filter selects some rows lazily
+// Filter selects some records lazily
 func (t *Table) Filter(f FilterSpec) *Table {
 	return lazyFilterTable(f, t)
 }
 
-// Join is a natural join on tables with the same Key
+// Join is a natural join on sorted tables with the same Key
 // TODO dedup series (?)
 func (t *Table) Join(other Joinable) *Table {
 	return nil
@@ -125,6 +241,7 @@ func (t *Table) Join(other Joinable) *Table {
 
 // ExtendBy adds a column by applying f.
 // TODO the implicit dependency on the table schema for t (via Row) is a bit ugly here
+// TODO optional, statically typed functions
 func (t *Table) ExtendBy(f func(r Row) interface{}, newCol ColumnName, newType reflect.Type) *Table {
 	return extendTable(f, newCol, newType, t)
 }
