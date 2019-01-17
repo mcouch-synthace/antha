@@ -1,20 +1,26 @@
 package data
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	// TODO "github.com/stretchr/testify/assert"
 )
 
 func TestEquals(t *testing.T) {
+	testEquals(t, nativeSeries)
+	testEquals(t, arrowSeries)
+}
+
+func testEquals(t *testing.T, typ seriesType) {
 	tab := NewTable([]*Series{
-		Must().NewSliceSeries("measure", []int64{1, 1000}),
-		Must().NewSliceSeries("label", []string{"abcdef", "abcd"}),
+		newSeries(typ, "measure", []int64{1, 1000}),
+		newSeries(typ, "label", []string{"abcdef", "abcd"}),
 	})
 	assertEqual(t, tab, tab, "not self equal")
 
 	tab2 := NewTable([]*Series{
-		Must().NewSliceSeries("measure", []int64{1, 1000}),
+		newSeries(typ, "measure", []int64{1, 1000}),
 	})
 	assertEqual(t, tab2, tab.Project("measure"), "not equal by value")
 
@@ -35,30 +41,40 @@ func assertEqual(t *testing.T, expected, actual *Table, msg string) {
 }
 
 func TestSlice(t *testing.T) {
+	testSlice(t, nativeSeries)
+	testSlice(t, arrowSeries)
+}
+
+func testSlice(t *testing.T, typ seriesType) {
 	a := NewTable([]*Series{
-		Must().NewSliceSeries("a", []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
+		newSeries(typ, "a", []int64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}),
 	})
 	assertEqual(t, a, a.Slice(0, 100), "slice all")
 
 	slice00 := a.Slice(1, 1)
 	assertEqual(t, NewTable([]*Series{
-		Must().NewSliceSeries("a", []int64{}),
+		newSeries(typ, "a", []int64{}),
 	}), slice00, "slice00")
 
 	slice04 := a.Head(4)
 	assertEqual(t, NewTable([]*Series{
-		Must().NewSliceSeries("a", []int64{1, 2, 3, 4}),
+		newSeries(typ, "a", []int64{1, 2, 3, 4}),
 	}), slice04, "slice04")
 
 	slice910 := a.Slice(9, 10)
 	assertEqual(t, NewTable([]*Series{
-		Must().NewSliceSeries("a", []int64{10}),
+		newSeries(typ, "a", []int64{10}),
 	}), slice910, "slice910")
 }
 
 func TestExtend(t *testing.T) {
+	testExtend(t, nativeSeries)
+	testExtend(t, arrowSeries)
+}
+
+func testExtend(t *testing.T, typ seriesType) {
 	a := NewTable([]*Series{
-		Must().NewSliceSeries("a", []int64{1, 2, 3}),
+		newSeries(typ, "a", []int64{1, 2, 3}),
 	})
 	extended := a.Extend("e").By(func(r Row) interface{} {
 		a, _ := r.Observation("a")
@@ -66,11 +82,11 @@ func TestExtend(t *testing.T) {
 	},
 		reflect.TypeOf(float64(0)))
 	assertEqual(t, NewTable([]*Series{
-		Must().NewSliceSeries("e", []float64{0.5, 1.0, 1.5}),
+		newSeries(typ, "e", []float64{0.5, 1.0, 1.5}),
 	}), extended.Project("e"), "extend")
 
 	floats := NewTable([]*Series{
-		Must().NewSliceSeries("floats", []float64{1, 2, 3}),
+		newSeries(typ, "floats", []float64{1, 2, 3}),
 	})
 	extendedStatic := floats.
 		Extend("e_static").
@@ -87,20 +103,30 @@ func TestExtend(t *testing.T) {
 }
 
 func TestFilterEq(t *testing.T) {
+	testFilterEq(t, nativeSeries)
+	testFilterEq(t, arrowSeries)
+}
+
+func testFilterEq(t *testing.T, typ seriesType) {
 	a := NewTable([]*Series{
-		Must().NewSliceSeries("a", []int64{1, 2, 3}),
+		newSeries(typ, "a", []int64{1, 2, 3}),
 	})
 	filtered := a.Filter(Eq("a", 2))
 	assertEqual(t, filtered, a.Slice(1, 2), "filter")
 }
 
 func TestSize(t *testing.T) {
+	testSize(t, nativeSeries)
+	testSize(t, arrowSeries)
+}
+
+func testSize(t *testing.T, typ seriesType) {
 	empty := NewTable([]*Series{})
 	if empty.Size() != 0 {
 		t.Errorf("should be empty. %d", empty.Size())
 	}
 	a := NewTable([]*Series{
-		Must().NewSliceSeries("a", []int64{1, 2, 3}),
+		newSeries(typ, "a", []int64{1, 2, 3}),
 	})
 	if a.Size() != 3 {
 		t.Errorf("size? %d", a.Size())
@@ -122,6 +148,22 @@ func TestSize(t *testing.T) {
 	if slice2.Size() != 2 {
 		t.Errorf("slice2.Size()? %d", slice2.Size())
 	}
-	// an extension is of exactly the size of its underlying
-	// TODO
+}
+
+type seriesType int
+
+const (
+	nativeSeries seriesType = iota
+	arrowSeries
+)
+
+func newSeries(typ seriesType, col ColumnName, values interface{}) *Series {
+	switch typ {
+	case nativeSeries:
+		return Must().NewSliceSeries(col, values)
+	case arrowSeries:
+		return Must().NewArrowSeriesFromSlice(col, values, nil)
+	default:
+		panic(fmt.Errorf("Unknown series type: %d", typ))
+	}
 }

@@ -1,8 +1,9 @@
 package data
 
 import (
-	"github.com/pkg/errors"
 	"reflect"
+
+	"github.com/pkg/errors"
 )
 
 type advanceable interface {
@@ -58,6 +59,40 @@ func (s *Series) assignableTo(typ reflect.Type) error {
 
 //TODO codegen below this point
 
+// bool
+type BoxBool interface {
+	Bool() (bool, bool) // returns false = nil
+}
+
+type iterBool interface {
+	advanceable
+	BoxBool
+}
+
+// bridge
+func (s *Series) iterateBool(iter iterator) (iterBool, error) {
+	if cast, ok := iter.(iterBool); ok {
+		return cast, nil
+	}
+	if err := s.assignableTo(reflect.TypeOf(false)); err != nil {
+		return nil, err
+	}
+	return &asBool{iterator: iter}, nil
+}
+
+type asBool struct {
+	iterator
+}
+
+func (a *asBool) Bool() (bool, bool) {
+	v := a.iterator.Value()
+	if v == nil {
+		return false, false
+	}
+	return v.(bool), true
+}
+
+// int64
 type BoxInt64 interface {
 	Int64() (int64, bool) // returns false = nil
 }
@@ -90,6 +125,7 @@ func (a *asInt64) Int64() (int64, bool) {
 	return v.(int64), true
 }
 
+// float64
 type BoxFloat64 interface {
 	Float64() (float64, bool)
 }
@@ -120,4 +156,37 @@ func (a *asFloat64) Float64() (float64, bool) {
 		return 0, false
 	}
 	return v.(float64), true
+}
+
+// string
+type BoxString interface {
+	String() (string, bool)
+}
+
+type iterString interface {
+	advanceable
+	BoxString
+}
+
+// bridge
+func (s *Series) iterateString(iter iterator) (iterString, error) {
+	if cast, ok := iter.(iterString); ok {
+		return cast, nil
+	}
+	if err := s.assignableTo(reflect.TypeOf("")); err != nil {
+		return nil, err
+	}
+	return &asString{iterator: iter}, nil
+}
+
+type asString struct {
+	iterator
+}
+
+func (a *asString) String() (string, bool) {
+	v := a.iterator.Value()
+	if v == nil {
+		return "", false
+	}
+	return v.(string), true
 }
