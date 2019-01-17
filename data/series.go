@@ -24,14 +24,6 @@ type Series struct {
 	meta seriesMeta
 }
 
-// Size returns the exact length of the series, or -1 if not known
-func (s *Series) Size() int {
-	if b, ok := s.meta.(Bounded); ok {
-		return b.ExactSize()
-	}
-	return -1
-}
-
 // seriesMeta captures differing series backend capabilities
 type seriesMeta interface{}
 

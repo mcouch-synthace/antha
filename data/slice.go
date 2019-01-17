@@ -4,18 +4,18 @@ import ()
 
 type slicer struct {
 	*seriesSlice
-	wrapped iterator
-	pos     Index
+	iterator
+	pos Index
 }
 
 func (iter *slicer) Next() bool {
 	for iter.pos+1 < iter.start {
-		if !iter.wrapped.Next() {
+		if !iter.iterator.Next() {
 			return false
 		}
 		iter.pos++
 	}
-	if !iter.wrapped.Next() {
+	if !iter.iterator.Next() {
 		// exhausted the underlying series
 		return false
 	}
@@ -24,10 +24,6 @@ func (iter *slicer) Next() bool {
 		return false
 	}
 	return true
-}
-
-func (iter *slicer) Value() interface{} {
-	return iter.wrapped.Value()
 }
 
 type seriesSlice struct {
@@ -47,7 +43,7 @@ func (ss *seriesSlice) read(cache seriesIterCache) iterator {
 		seriesSlice: ss,
 		pos:         -1,
 		// TODO are we advancing series correctly here?
-		wrapped: ss.wrapped.read(cache),
+		iterator: ss.wrapped.read(cache),
 	}
 }
 
