@@ -732,7 +732,7 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 
 	if request.Options.PrintInstructions {
 		fmt.Println("")
-		fmt.Printf("Ordered Instructions:")
+		fmt.Println("Ordered Instructions:")
 		for _, insID := range request.OutputOrder {
 			fmt.Println(request.LHInstructions[insID])
 		}
@@ -834,7 +834,6 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 	}
 
 	// define the input plates
-	// should be merged with the above
 	request, err = input_plate_setup(ctx, request)
 	if err != nil {
 		return err
@@ -844,6 +843,17 @@ func (this *Liquidhandler) Plan(ctx context.Context, request *LHRequest) error {
 	request, err = this.Setup(ctx, request)
 	if err != nil {
 		return err
+	}
+
+	if request.Options.PrintInstructions {
+		if solutions, err := request.GetSolutionsFromInputPlates(); err != nil {
+			return err
+		} else if inputs, err := GetInputs(orderedInstructions, solutions, request.CarryVolume); err != nil {
+			return err
+		} else {
+			fmt.Println("Inputs after setup:")
+			fmt.Println(inputs)
+		}
 	}
 
 	// final insurance that plate names will be safe

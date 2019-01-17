@@ -70,8 +70,11 @@ func MakeTreeRoot(ctx context.Context, ch *wtype.IChain, policies *wtype.LHPolic
 				return nil, fmt.Errorf("Internal error: Failure in instruction sorting - got types %s in layer starting with split", insTypes(ch.Values))
 			}
 
+			// Need to apply the effect of the split immediately as it may be required for later calls to MakeTransfers
+			// (n.b. the effect is to update the ID of the non-moving component to its new value)
 			splitBlock := NewSplitBlockInstruction(ch.Values)
-			ret.AddChild(splitBlock)
+			splitBlock.Generate(ctx, policies, robot)
+			//ret.AddChild(splitBlock)
 		} else {
 			if transfers, err := MakeTransfers(ctx, ch.Values, policies, robot); err != nil {
 				return ret, err

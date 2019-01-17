@@ -1084,6 +1084,40 @@ func TestExecutionPlanning(t *testing.T) {
 			},
 		},
 		{
+			Name: "single channel split-sample",
+			Instructions: func(ctx context.Context) []*wtype.LHInstruction {
+
+				var instructions []*wtype.LHInstruction
+
+				diluent := GetComponentForTest(ctx, "multiwater", wunit.NewVolume(1000.0, "ul"))
+				source := GetComponentForTest(ctx, "dna", wunit.NewVolume(1000.0, "ul"))
+
+				dilutions := make([]*wtype.Liquid, 0, 8)
+
+				for y := 0; y < 8; y++ {
+					dSample := mixer.Sample(diluent, wunit.NewVolume(20.0, "ul"))
+					sSample, dil, split := getTestSplitSample(ctx, source, 20.0)
+					dilutions = append(dilutions, dil)
+
+					newSrc, mix := getTestMix([]*wtype.Liquid{dSample, sSample}, wtype.WellCoords{X: 1, Y: y}.FormatA1())
+					instructions = append(instructions, mix, split)
+					source = newSrc
+				}
+
+				// now the real test, can we actually use the dilutions
+				cmpToMove := mixer.Sample(dilutions[2], wunit.NewVolume(5, "ul"))
+				_, mix := getTestMix([]*wtype.Liquid{cmpToMove}, "A2")
+
+				return append(instructions, mix)
+			},
+			InputPlates:  []*wtype.LHPlate{GetTroughForTest()},
+			OutputPlates: []*wtype.LHPlate{GetPlateForTest()},
+			Assertions: Assertions{
+				NumberOfAssertion(liquidhandling.ASP, 17), //full multichanneling - 2 ops per dilution row + final move
+				NumberOfAssertion(liquidhandling.DSP, 17), //full multichanneling
+			},
+		},
+		{
 			Name: "multi channel split-sample",
 			Instructions: func(ctx context.Context) []*wtype.LHInstruction {
 
@@ -1093,17 +1127,17 @@ func TestExecutionPlanning(t *testing.T) {
 				stock := GetComponentForTest(ctx, "dna", wunit.NewVolume(1000, "ul"))
 				stock.Type = wtype.LTMultiWater
 
+				var split *wtype.LHInstruction
+
 				for y := 0; y < 8; y++ {
 					lastStock := stock
 					for x := 0; x < 2; x++ {
 						diluentSample := mixer.Sample(diluent, wunit.NewVolume(20.0, "ul"))
 
-						split := getTestSplitSample(ctx, lastStock, 20.0)
+						lastStock, _, split = getTestSplitSample(ctx, lastStock, 20.0)
 
 						wc := wtype.WellCoords{X: x, Y: y}
-						mix := getTestMix([]*wtype.Liquid{split.Outputs[0], diluentSample}, wc.FormatA1())
-
-						lastStock = mix.Outputs[0]
+						_, mix := getTestMix([]*wtype.Liquid{split.Outputs[1], diluentSample}, wc.FormatA1())
 
 						instructions = append(instructions, mix, split)
 					}
@@ -1280,7 +1314,7 @@ func TestShouldSetWellTargets(t *testing.T) {
 	}
 }
 
-func getTestSplitSample(ctx context.Context, component *wtype.Liquid, volume float64) *wtype.LHInstruction {
+func getTestSplitSample(ctx context.Context, component *wtype.Liquid, volume float64) (*wtype.Liquid, *wtype.Liquid, *wtype.LHInstruction) {
 	ret := wtype.NewLHSplitInstruction()
 
 	ret.Inputs = append(ret.Inputs, component.Dup())
@@ -1289,10 +1323,10 @@ func getTestSplitSample(ctx context.Context, component *wtype.Liquid, volume flo
 
 	ret.Outputs = append(ret.Outputs, cmpMoving, cmpStaying)
 
-	return ret
+	return cmpMoving, cmpStaying, ret
 }
 
-func getTestMix(components []*wtype.Liquid, address string) *wtype.LHInstruction {
+func getTestMix(components []*wtype.Liquid, address string) (*wtype.Liquid, *wtype.LHInstruction) {
 	mix := mixer.GenericMix(mixer.MixOptions{
 		Inputs:  components,
 		Address: address,
@@ -1308,5 +1342,5 @@ func getTestMix(components []*wtype.Liquid, address string) *wtype.LHInstruction
 	mix.Outputs[0].SetGeneration(mx + 1)
 	mix.Outputs[0].DeclareInstance()
 
-	return mix
+	return mix.Outputs[0], mix
 }
