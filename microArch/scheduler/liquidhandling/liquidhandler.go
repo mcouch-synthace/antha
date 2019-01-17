@@ -1249,7 +1249,7 @@ func (this *Liquidhandler) makePlateIDMap() error {
 // based on where tipboxes are found in FinalProperties
 func (lh *Liquidhandler) AddInitialTipboxes() {
 	for pos, final := range lh.FinalProperties.Tipboxes {
-		initial := final.Dup()
+		initial := final.DupKeepIDs()
 		initial.Refresh()
 		lh.Properties.AddTipBoxTo(pos, initial)
 	}
