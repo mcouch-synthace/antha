@@ -1,7 +1,6 @@
 package data
 
 import (
-	"github.com/pkg/errors"
 	"reflect"
 )
 
@@ -67,60 +66,4 @@ func (e *Extension) On(cols ...ColumnName) *ExtendOn {
 type ExtendOn struct {
 	extension *Extension
 	inputs    []*Series
-}
-
-// TODO codegen below here
-
-// Float64 adds a float64 col using float64 inputs.  Null on any null inputs.
-func (e *ExtendOn) Float64(f func(v ...float64) float64) *Table {
-	// TODO move from lazy to eager type validation
-	return NewTable(append(e.extension.series, &Series{
-		col: e.extension.newCol,
-		typ: reflect.TypeOf(float64(0)),
-		read: func(cache seriesIterCache) iterator {
-			// Every series must be cast or converted
-			colReader := make([]iterFloat64, len(e.inputs))
-			var err error
-			for i, ser := range e.inputs {
-				iter := cache.Ensure(ser)
-				colReader[i], err = ser.iterateFloat64(iter) // note colReader[i] is not itself in the cache!
-				if err != nil {
-					// TODO non-panic option?
-					// TODO test coverage
-					panic(errors.Wrapf(err, "when projecting new column %v", e.extension.newCol))
-				}
-			}
-			return &extendInt64{f: f, source: colReader}
-		}},
-	))
-}
-
-var _ iterFloat64 = (*extendInt64)(nil)
-
-type extendInt64 struct {
-	f      func(v ...float64) float64
-	source []iterFloat64
-}
-
-func (x *extendInt64) Next() bool {
-	return true
-}
-func (x *extendInt64) Value() interface{} {
-	v, ok := x.Float64()
-	if !ok {
-		return nil
-	}
-	return v
-}
-func (x *extendInt64) Float64() (float64, bool) {
-	args := make([]float64, len(x.source))
-	var ok bool
-	for i, s := range x.source {
-		args[i], ok = s.Float64()
-		if !ok {
-			return 0, false
-		}
-	}
-	v := x.f(args...)
-	return v, true
 }

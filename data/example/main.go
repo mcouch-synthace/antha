@@ -73,6 +73,7 @@ func Example(tab *data.Table) {
 		Extend("multiplied").By(mult, reflect.TypeOf(float64(0)))
 	fmt.Println("extended and filtered\n", extended.Filter(data.Eq("multiplied", 25)).ToRows())
 
+	// TODO: use static extend in the example - requires converting "measure" to homogeneous float type
 	projected := tab.
 		Extend("multiplied").By(mult, reflect.TypeOf(float64(0))).
 		Project("label", "multiplied")

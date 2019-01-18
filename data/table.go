@@ -1,5 +1,6 @@
 package data
 
+//go:generate python gen.py
 import (
 	"math"
 	"reflect"
