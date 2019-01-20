@@ -134,6 +134,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/pkg/errors"
 )
 
 {% for t in env['TYPE_SUPPORT'] %}
@@ -159,9 +160,37 @@ func NewArrowSeriesFromSlice{{ t['Type'] }}(col ColumnName, values []{{ t['Raw']
 	return NewArrowSeries{{ t['Type'] }}(col, arrowValues)
 }
 
+func NewArrowSeriesFromSeries{{ t['Type'] }}(series *Series) (*Series, error) {
+	if !series.meta.IsBounded() {
+		return nil, errors.New("Unable to materialize unbounded series")
+	}
+
+	var iterCache seriesIterCache
+	iter := series.read(iterCache)
+
+	typedIter, err := series.iterate{{ t['Type'] }}(iter)
+	if err != nil {
+		return nil, err
+	}
+
+	builder := array.New{{ t['ArrowType'] }}Builder(memory.DefaultAllocator)
+	for typedIter.Next() {
+		if value, ok := typedIter.{{ t['Type'] }}(); ok {
+			builder.Append(value)
+		} else {
+			builder.AppendNull()
+		}
+	}
+	arrowValues := builder.New{{ t['ArrowType'] }}Array()
+	return NewArrowSeries{{ t['Type'] }}(series.col, arrowValues), nil
+}
+
 type {{ t['Raw'] }}ArrowSeriesMeta struct {
 	values *array.{{ t['ArrowType'] }}
 }
+
+func (m *{{ t['Raw'] }}ArrowSeriesMeta) IsBounded() bool { return true; }
+func (m *{{ t['Raw'] }}ArrowSeriesMeta) IsMaterialized() bool { return true; }
 
 func (m *{{ t['Raw'] }}ArrowSeriesMeta) ExactSize() int {
 	return m.values.Len()

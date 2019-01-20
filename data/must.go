@@ -1,7 +1,8 @@
 package data
 
-import ()
-import "github.com/apache/arrow/go/arrow/array"
+import (
+	"github.com/apache/arrow/go/arrow/array"
+)
 
 /*
  * utility for wrapping error functions
@@ -36,4 +37,56 @@ func (m MustCreate) NewArrowSeriesFromSlice(col ColumnName, values interface{}, 
 	ser, err := NewArrowSeriesFromSlice(col, values, mask)
 	m.handle(err)
 	return ser
+}
+
+type MustSeries struct {
+	s *Series
+}
+
+func (m MustSeries) handle(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (s *Series) Must() MustSeries {
+	return MustSeries{s: s}
+}
+
+func (m MustSeries) Copy() *Series {
+	s, err := m.s.Copy()
+	m.handle(err)
+	return s
+}
+
+func (m MustSeries) Cache() *Series {
+	s, err := m.s.Cache()
+	m.handle(err)
+	return s
+}
+
+type MustTable struct {
+	t *Table
+}
+
+func (m MustTable) handle(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (t *Table) Must() MustTable {
+	return MustTable{t: t}
+}
+
+func (m MustTable) Copy() *Table {
+	t, err := m.t.Copy()
+	m.handle(err)
+	return t
+}
+
+func (m MustTable) Cache() *Table {
+	t, err := m.t.Cache()
+	m.handle(err)
+	return t
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/pkg/errors"
 )
 
 
@@ -31,9 +32,37 @@ func NewArrowSeriesFromSliceFloat64(col ColumnName, values []float64, mask []boo
 	return NewArrowSeriesFloat64(col, arrowValues)
 }
 
+func NewArrowSeriesFromSeriesFloat64(series *Series) (*Series, error) {
+	if !series.meta.IsBounded() {
+		return nil, errors.New("Unable to materialize unbounded series")
+	}
+
+	var iterCache seriesIterCache
+	iter := series.read(iterCache)
+
+	typedIter, err := series.iterateFloat64(iter)
+	if err != nil {
+		return nil, err
+	}
+
+	builder := array.NewFloat64Builder(memory.DefaultAllocator)
+	for typedIter.Next() {
+		if value, ok := typedIter.Float64(); ok {
+			builder.Append(value)
+		} else {
+			builder.AppendNull()
+		}
+	}
+	arrowValues := builder.NewFloat64Array()
+	return NewArrowSeriesFloat64(series.col, arrowValues), nil
+}
+
 type float64ArrowSeriesMeta struct {
 	values *array.Float64
 }
+
+func (m *float64ArrowSeriesMeta) IsBounded() bool { return true; }
+func (m *float64ArrowSeriesMeta) IsMaterialized() bool { return true; }
 
 func (m *float64ArrowSeriesMeta) ExactSize() int {
 	return m.values.Len()
@@ -103,9 +132,37 @@ func NewArrowSeriesFromSliceInt64(col ColumnName, values []int64, mask []bool) *
 	return NewArrowSeriesInt64(col, arrowValues)
 }
 
+func NewArrowSeriesFromSeriesInt64(series *Series) (*Series, error) {
+	if !series.meta.IsBounded() {
+		return nil, errors.New("Unable to materialize unbounded series")
+	}
+
+	var iterCache seriesIterCache
+	iter := series.read(iterCache)
+
+	typedIter, err := series.iterateInt64(iter)
+	if err != nil {
+		return nil, err
+	}
+
+	builder := array.NewInt64Builder(memory.DefaultAllocator)
+	for typedIter.Next() {
+		if value, ok := typedIter.Int64(); ok {
+			builder.Append(value)
+		} else {
+			builder.AppendNull()
+		}
+	}
+	arrowValues := builder.NewInt64Array()
+	return NewArrowSeriesInt64(series.col, arrowValues), nil
+}
+
 type int64ArrowSeriesMeta struct {
 	values *array.Int64
 }
+
+func (m *int64ArrowSeriesMeta) IsBounded() bool { return true; }
+func (m *int64ArrowSeriesMeta) IsMaterialized() bool { return true; }
 
 func (m *int64ArrowSeriesMeta) ExactSize() int {
 	return m.values.Len()
@@ -175,9 +232,37 @@ func NewArrowSeriesFromSliceString(col ColumnName, values []string, mask []bool)
 	return NewArrowSeriesString(col, arrowValues)
 }
 
+func NewArrowSeriesFromSeriesString(series *Series) (*Series, error) {
+	if !series.meta.IsBounded() {
+		return nil, errors.New("Unable to materialize unbounded series")
+	}
+
+	var iterCache seriesIterCache
+	iter := series.read(iterCache)
+
+	typedIter, err := series.iterateString(iter)
+	if err != nil {
+		return nil, err
+	}
+
+	builder := array.NewStringBuilder(memory.DefaultAllocator)
+	for typedIter.Next() {
+		if value, ok := typedIter.String(); ok {
+			builder.Append(value)
+		} else {
+			builder.AppendNull()
+		}
+	}
+	arrowValues := builder.NewStringArray()
+	return NewArrowSeriesString(series.col, arrowValues), nil
+}
+
 type stringArrowSeriesMeta struct {
 	values *array.String
 }
+
+func (m *stringArrowSeriesMeta) IsBounded() bool { return true; }
+func (m *stringArrowSeriesMeta) IsMaterialized() bool { return true; }
 
 func (m *stringArrowSeriesMeta) ExactSize() int {
 	return m.values.Len()
@@ -247,9 +332,37 @@ func NewArrowSeriesFromSliceBool(col ColumnName, values []bool, mask []bool) *Se
 	return NewArrowSeriesBool(col, arrowValues)
 }
 
+func NewArrowSeriesFromSeriesBool(series *Series) (*Series, error) {
+	if !series.meta.IsBounded() {
+		return nil, errors.New("Unable to materialize unbounded series")
+	}
+
+	var iterCache seriesIterCache
+	iter := series.read(iterCache)
+
+	typedIter, err := series.iterateBool(iter)
+	if err != nil {
+		return nil, err
+	}
+
+	builder := array.NewBooleanBuilder(memory.DefaultAllocator)
+	for typedIter.Next() {
+		if value, ok := typedIter.Bool(); ok {
+			builder.Append(value)
+		} else {
+			builder.AppendNull()
+		}
+	}
+	arrowValues := builder.NewBooleanArray()
+	return NewArrowSeriesBool(series.col, arrowValues), nil
+}
+
 type boolArrowSeriesMeta struct {
 	values *array.Boolean
 }
+
+func (m *boolArrowSeriesMeta) IsBounded() bool { return true; }
+func (m *boolArrowSeriesMeta) IsMaterialized() bool { return true; }
 
 func (m *boolArrowSeriesMeta) ExactSize() int {
 	return m.values.Len()

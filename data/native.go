@@ -1,8 +1,9 @@
 package data
 
 import (
-	"github.com/pkg/errors"
 	"reflect"
+
+	"github.com/pkg/errors"
 )
 
 // Data sets using go native types.  This can be slow!
@@ -31,6 +32,9 @@ type nativeSliceSerMeta struct {
 	rValue reflect.Value
 	len    int
 }
+
+func (m *nativeSliceSerMeta) IsBounded() bool      { return true }
+func (m *nativeSliceSerMeta) IsMaterialized() bool { return true }
 
 func (m *nativeSliceSerMeta) ExactSize() int {
 	return m.len

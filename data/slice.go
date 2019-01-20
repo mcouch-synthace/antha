@@ -1,7 +1,5 @@
 package data
 
-import ()
-
 type slicer struct {
 	*seriesSlice
 	iterator
@@ -38,6 +36,7 @@ func newSeriesSlice(ser *Series, start, end Index) *seriesSlice {
 func (ss *seriesSlice) length() int {
 	return int(ss.end - ss.start)
 }
+
 func (ss *seriesSlice) read(cache seriesIterCache) iterator {
 	return &slicer{
 		seriesSlice: ss,
@@ -46,6 +45,9 @@ func (ss *seriesSlice) read(cache seriesIterCache) iterator {
 		iterator: ss.wrapped.read(cache),
 	}
 }
+
+func (ss *seriesSlice) IsBounded() bool      { return ss.wrapped.meta.IsBounded() }
+func (ss *seriesSlice) IsMaterialized() bool { return false }
 
 func (ss *seriesSlice) ExactSize() int {
 	length := ss.length()

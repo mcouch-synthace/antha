@@ -175,8 +175,29 @@ func lazyFilterTable(filterSpec FilterSpec, table *Table) *Table {
 			typ:  wrappedSeries.typ,
 			col:  wrappedSeries.col,
 			read: wrap(i, wrappedSeries),
+			meta: &filteredSeriesMeta{wrapped: wrappedSeries.meta},
 		}
 	}
 	t := NewTable(wrappers)
 	return t
+}
+
+// filtered series metadata
+type filteredSeriesMeta struct {
+	wrapped SeriesMeta
+}
+
+func (m *filteredSeriesMeta) IsBounded() bool      { return m.wrapped.IsBounded() }
+func (m *filteredSeriesMeta) IsMaterialized() bool { return false }
+
+func (m *filteredSeriesMeta) ExactSize() int {
+	return -1
+}
+
+func (m *filteredSeriesMeta) MaxSize() int {
+	if m.IsBounded() {
+		return m.wrapped.(Bounded).MaxSize()
+	} else {
+		return -1
+	}
 }

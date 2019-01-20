@@ -43,3 +43,19 @@ func NewArrowSeriesFromSlice(col ColumnName, values interface{}, mask []bool) (*
 		return nil, errors.Errorf("The data type %v is not supported, expecting slice of supported primitive types", reflect.TypeOf(values))
 	}
 }
+
+func NewArrowSeriesFromSeries(series *Series) (*Series, error) {
+	// for now, only series of supported Arrow types are supported
+	switch series.typ {
+	case reflect.TypeOf(false):
+		return NewArrowSeriesFromSeriesBool(series)
+	case reflect.TypeOf(int64(0)):
+		return NewArrowSeriesFromSeriesInt64(series)
+	case reflect.TypeOf(float64(0)):
+		return NewArrowSeriesFromSeriesFloat64(series)
+	case reflect.TypeOf(""):
+		return NewArrowSeriesFromSeriesString(series)
+	default:
+		return nil, errors.New("The data type is not supported, expecting a series of supported primitive type")
+	}
+}
