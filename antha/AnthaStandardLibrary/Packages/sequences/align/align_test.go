@@ -48,7 +48,7 @@ var (
 				Seq: "GTTGACAGACTAGATTCACG",
 			},
 			Seq2: wtype.DNASequence{
-				Nm:  "Seq4",
+				Nm: "Seq4",
 
 				Seq: "GTTGACA",
 			},
@@ -74,7 +74,7 @@ var (
 			ScoringMatrix:     FittedAffine,
 			AlignmentStartPos: 14,
 			AlignmentEndPos:   20,
-			Score:             5,  // 5 * 1 - 5 (gap open) + 2 * -1 (gap extend) + 3 * 1 + 3 * -1 + 7 * 1
+			Score:             5, // 5 * 1 - 5 (gap open) + 2 * -1 (gap extend) + 3 * 1 + 3 * -1 + 7 * 1
 		},
 		{
 			Name: "TerminatorAlignmentCorrect",
@@ -108,7 +108,7 @@ var (
 			ScoringMatrix:     Fitted,
 			AlignmentStartPos: 0,
 			AlignmentEndPos:   0,
-			Score:             10333, 
+			Score:             10333,
 		},
 		{
 			Name: "plasmidAlignmentTest",
@@ -126,7 +126,7 @@ var (
 			ScoringMatrix:     Fitted,
 			AlignmentStartPos: 17,
 			AlignmentEndPos:   7,
-			Score:             94,  // 3 * 10 (A) + 3 * 9 (C) + 3 * 7 (G) + 2 * 8 (T) 
+			Score:             94, // 3 * 10 (A) + 3 * 9 (C) + 3 * 7 (G) + 2 * 8 (T)
 		},
 		{
 			Name: "plasmidAlignmentTest2",
@@ -144,7 +144,7 @@ var (
 			ScoringMatrix:     Fitted,
 			AlignmentStartPos: 1,
 			AlignmentEndPos:   9,
-			Score:             76,  // 3 * 10 (A) + 1 * 9 (C) + 3 * 7 (G) + 2 * 8 (T) 
+			Score:             76, // 3 * 10 (A) + 1 * 9 (C) + 3 * 7 (G) + 2 * 8 (T)
 		},
 		{
 			Name: "revTest",
@@ -162,7 +162,7 @@ var (
 			ScoringMatrix:     Fitted,
 			AlignmentStartPos: 9,
 			AlignmentEndPos:   1,
-			Score:             76,  // 3 * 10 (A) + 1 * 9 (C) + 3 * 7 (G) + 2 * 8 (T) 
+			Score:             76, // 3 * 10 (A) + 1 * 9 (C) + 3 * 7 (G) + 2 * 8 (T)
 		},
 		{
 			Name: "plasmidRevTest",
@@ -180,7 +180,7 @@ var (
 			ScoringMatrix:     Fitted,
 			AlignmentStartPos: 7,
 			AlignmentEndPos:   17,
-			Score:             94,  // 3 * 10 (A) + 3 * 9 (C) + 3 * 7 (G) + 2 * 8 (T)
+			Score:             94, // 3 * 10 (A) + 3 * 9 (C) + 3 * 7 (G) + 2 * 8 (T)
 		}, /*
 			alignmentTest{
 				Name: "bigQueryagainstSmallTemplate",
@@ -277,9 +277,8 @@ func TestAlign(t *testing.T) {
 	}
 }
 
-
 func TestAlignPositions(t *testing.T) {
-	
+
 	seq1 := wtype.DNASequence{
 		Seq: "GGGGGGGGGGGGGGGGGATGGTACAGG",
 	}
@@ -288,7 +287,7 @@ func TestAlignPositions(t *testing.T) {
 	}
 
 	alignment, err := DNA(replaceN(seq1), replaceN(seq2), Fitted)
-	
+
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -297,13 +296,13 @@ func TestAlignPositions(t *testing.T) {
 	// GAT--TACA
 	// [17 18 19 20 21 22 23 24 25]
 	// [1 2 3 20 20 4 5 6 7] wrong
-	// [1 2 3 4 4 4 5 6 7] better	
+	// [1 2 3 4 4 4 5 6 7] better
 
 	gotPositions := alignment.Alignment.QueryPositions
 	wantPositions := []int{1, 2, 3, 4, 4, 4, 5, 6, 7}
 
 	alnLen := len(gotPositions)
-	
+
 	for i := 0; i < alnLen; i++ {
 		if gotPositions[i] != wantPositions[i] {
 			t.Error(
@@ -312,5 +311,5 @@ func TestAlignPositions(t *testing.T) {
 			)
 		}
 	}
-	
+
 }
