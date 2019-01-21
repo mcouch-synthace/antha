@@ -533,12 +533,12 @@ func format(templateSeq, querySeq seq.Slicer, alignedPairs []feat.Pair, gap alph
 				case alphabet.Letters:
 					alignedSeqs[i] = alignedSeqs[i].Append(alphabet.Letters(gap.Repeat(features[1-i].Len())))
 					for counter := features[1-i].Start(); counter < features[1-i].End(); counter++ {
-						newPositions[i] = append(newPositions[i], features[1-i].Start()+1)
+						newPositions[i] = append(newPositions[i], features[i].Start()+1)
 					}
 				case alphabet.QLetters:
 					alignedSeqs[i] = alignedSeqs[i].Append(alphabet.QLetters(alphabet.QLetter{L: gap}.Repeat(features[1-i].Len())))
 					for counter := features[1-i].Start(); counter < features[1-i].End(); counter++ {
-						newPositions[i] = append(newPositions[i], features[1-i].Start()+1)
+						newPositions[i] = append(newPositions[i], features[i].Start()+1)
 					}
 				}
 			} else {

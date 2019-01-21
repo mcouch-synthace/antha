@@ -276,3 +276,41 @@ func TestAlign(t *testing.T) {
 		)
 	}
 }
+
+
+func TestAlignPositions(t *testing.T) {
+	
+	seq1 := wtype.DNASequence{
+		Seq: "GGGGGGGGGGGGGGGGGATGGTACAGG",
+	}
+	seq2 := wtype.DNASequence{
+		Seq: "GATTACA",
+	}
+
+	alignment, err := DNA(replaceN(seq1), replaceN(seq2), Fitted)
+	
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// GATGGTACA
+	// GAT--TACA
+	// [17 18 19 20 21 22 23 24 25]
+	// [1 2 3 20 20 4 5 6 7] wrong
+	// [1 2 3 4 4 4 5 6 7] better	
+
+	gotPositions := alignment.Alignment.QueryPositions
+	wantPositions := []int{1, 2, 3, 4, 4, 4, 5, 6, 7}
+
+	alnLen := len(gotPositions)
+	
+	for i := 0; i < alnLen; i++ {
+		if gotPositions[i] != wantPositions[i] {
+			t.Error(
+				"Expected position:", wantPositions[i], "\n",
+				"got:", gotPositions[i], "\n",
+			)
+		}
+	}
+	
+}
